@@ -76,6 +76,8 @@ class NearestMarketSensor(CariPasarMalamEntity, SensorEntity):
         attrs: dict[str, Any] = {
             "target": self._target_id,
             "target_name": self._target_name,
+            "target_latitude": data.get("latitude"),
+            "target_longitude": data.get("longitude"),
             "radius_km": data.get("radius_km"),
             "open_today_count": data.get("open_today_count", 0),
             "open_now_count": data.get("open_now_count", 0),
@@ -89,6 +91,8 @@ class NearestMarketSensor(CariPasarMalamEntity, SensorEntity):
                 "operating_hours_today": nearest.get("operating_hours_today"),
                 "closes_at": nearest.get("closes_at"),
                 "next_open_at": nearest.get("next_open_at"),
+                "minutes_until_close": nearest.get("minutes_until_close"),
+                "minutes_until_next_open": nearest.get("minutes_until_next_open"),
                 "address": nearest.get("address"),
                 "district": nearest.get("district"),
                 "state": nearest.get("state"),
@@ -103,17 +107,8 @@ class NearestMarketSensor(CariPasarMalamEntity, SensorEntity):
             })
 
         # List of all markets open today within radius
-        attrs["markets_today"] = [
-            {
-                "name": m.get("name"),
-                "distance_km": m.get("distance_km"),
-                "operating_hours": m.get("operating_hours_today"),
-                "status": m.get("status"),
-                "address": m.get("address"),
-                "gmaps_link": m.get("gmaps_link"),
-            }
-            for m in data.get("markets_today", [])
-        ]
+        attrs["markets_today"] = data.get("markets_today", [])
+        attrs["all_nearby_markets"] = data.get("all_nearby_markets", [])
 
         return attrs
 

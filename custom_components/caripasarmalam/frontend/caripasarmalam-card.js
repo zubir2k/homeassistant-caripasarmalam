@@ -1,34 +1,39 @@
 /**
  * CariPasarMalam Card for Home Assistant
- * A vibrant Lovelace card to browse nearby night markets (pasar malam),
- * check operating hours, amenities, and navigate directly via Google Maps.
  *
+ * Interactive Leaflet Map card showing nearby night markets (pasar malam)
+ * around Home and tracked persons with live status, distances, hours, and navigation.
+ *
+ * Modeled after pasarmalam.app/map and homeassistant-jejakmasjid.
  * MIT License
  */
 
-const CARD_VERSION = "0.1.0";
+const CARD_VERSION = "0.2.0";
+const BASE = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
+const VERSION = new URL(import.meta.url).searchParams.get("v") || CARD_VERSION;
 
 const T = {
   en: {
     title: "Cari Pasar Malam",
     home: "Home",
+    all: "All Markets",
+    today: "Open Today",
     openNow: "Open Now",
     openingSoon: "Opening Soon",
-    closed: "Closed Today",
-    noneToday: "No pasar malam open today within radius",
-    todayMarkets: "Markets Open Today",
-    weeklySchedule: "Weekly Schedule",
-    distance: "away",
-    hours: "Hours",
-    navigate: "Navigate",
+    closed: "Closed",
+    opensIn: "Opens in",
+    closesIn: "Closes in",
+    fromHere: "from here",
+    getDirections: "Get Directions",
+    viewDetails: "View Details",
     parking: "Parking",
     toilet: "Toilet",
     prayerRoom: "Surau",
-    available: "Yes",
-    unavailable: "None",
+    currentLocation: "Current location",
     noSensor: "No CariPasarMalam sensors found in Home Assistant.",
-    allStates: "All Markets",
-    days: {
+    noMarkets: "No markets found within search radius.",
+    todayTag: "Today",
+    daysFull: {
       mon: "Monday",
       tue: "Tuesday",
       wed: "Wednesday",
@@ -41,23 +46,24 @@ const T = {
   ms: {
     title: "Cari Pasar Malam",
     home: "Rumah",
+    all: "Semua",
+    today: "Buka Hari Ini",
     openNow: "Buka Sekarang",
     openingSoon: "Akan Buka",
-    closed: "Tutup Hari Ini",
-    noneToday: "Tiada pasar malam buka hari ini dalam lingkungan",
-    todayMarkets: "Pasar Malam Hari Ini",
-    weeklySchedule: "Jadual Mingguan",
-    distance: "jauh",
-    hours: "Waktu",
-    navigate: "Pandu Arah",
+    closed: "Tutup",
+    opensIn: "Akan buka dalam",
+    closesIn: "Akan tutup dalam",
+    fromHere: "dari sini",
+    getDirections: "Pandu Arah",
+    viewDetails: "Maklumat Lanjut",
     parking: "Parkir",
     toilet: "Tandas",
     prayerRoom: "Surau",
-    available: "Ada",
-    unavailable: "Tiada",
+    currentLocation: "Lokasi semasa",
     noSensor: "Tiada sensor CariPasarMalam ditemui dalam Home Assistant.",
-    allStates: "Semua Pasar Malam",
-    days: {
+    noMarkets: "Tiada pasar malam dijumpai dalam lingkungan.",
+    todayTag: "Hari Ini",
+    daysFull: {
       mon: "Isnin",
       tue: "Selasa",
       wed: "Rabu",
@@ -97,22 +103,43 @@ const navUrl = (lat, lon, name) => {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
 };
 
+let leafletPromise;
+function loadLeaflet() {
+  if (window.L && window.L.map) return Promise.resolve(window.L);
+  if (!leafletPromise) {
+    leafletPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = `${BASE}/leaflet.js?v=1.9.4`;
+      s.onload = () => resolve(window.L);
+      s.onerror = () => reject(new Error("Leaflet failed to load"));
+      document.head.appendChild(s);
+    });
+  }
+  return leafletPromise;
+}
+
 class CariPasarMalamCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
     this._selectedTarget = null;
-    this._activeTab = "today"; // "today" | "weekly"
+    this._filter = "today"; // "today" | "all" | "open"
+    this._map = null;
+    this._markersLayer = null;
+    this._userInteracted = false;
   }
 
   setConfig(config) {
     this._config = {
       title: config.title || "Cari Pasar Malam",
-      entity: config.entity,
-      show_weekly: config.show_weekly !== false,
+      map_height: config.map_height || 420,
+      filter: config.filter || "today",
       language: config.language || "auto",
       ...config,
     };
+    if (["today", "all", "open"].includes(this._config.filter)) {
+      this._filter = this._config.filter;
+    }
   }
 
   set hass(hass) {
@@ -121,7 +148,7 @@ class CariPasarMalamCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 4;
+    return 6;
   }
 
   _getLang() {
@@ -153,6 +180,29 @@ class CariPasarMalamCard extends HTMLElement {
     return sensors;
   }
 
+  _formatCountdown(minutes, isClosing, t) {
+    if (typeof minutes !== "number" || minutes <= 0) return "";
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    const timeStr = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+    const prefix = isClosing ? t.closesIn : t.opensIn;
+    return `${prefix} ${timeStr}`;
+  }
+
+  _formatScheduleDays(schedule, lang, t) {
+    if (!Array.isArray(schedule) || schedule.length === 0) return "";
+    const parts = [];
+    const daysDict = t.daysFull;
+    for (const rule of schedule) {
+      if (!rule || !Array.isArray(rule.days)) continue;
+      const dayNames = rule.days.map((d) => daysDict[d] || d);
+      const times = rule.times || [];
+      const timeStr = times.map((tm) => `${tm.start || ""}-${tm.end || ""}`).join(", ");
+      parts.push(`${dayNames.join(", ")} ${timeStr}`);
+    }
+    return parts.join("; ");
+  }
+
   _render() {
     if (!this._hass || !this.shadowRoot) return;
 
@@ -162,8 +212,8 @@ class CariPasarMalamCard extends HTMLElement {
 
     if (!targets.length) {
       this.shadowRoot.innerHTML = `
-        <ha-card style="padding: 16px; text-align: center; color: var(--secondary-text-color);">
-          <ha-icon icon="mdi:store-off" style="--mdc-icon-size: 36px; margin-bottom: 8px;"></ha-icon>
+        <ha-card style="padding: 24px; text-align: center; color: var(--secondary-text-color);">
+          <ha-icon icon="mdi:store-off" style="--mdc-icon-size: 40px; margin-bottom: 8px;"></ha-icon>
           <div>${t.noSensor}</div>
         </ha-card>
       `;
@@ -176,383 +226,509 @@ class CariPasarMalamCard extends HTMLElement {
 
     const currentSensor = targets.find((s) => s.attributes.target === this._selectedTarget) || targets[0];
     const attrs = currentSensor.attributes || {};
-    const nearestName = currentSensor.state;
-    const hasMarketToday = nearestName && nearestName !== "None open today" && nearestName !== "No GPS coordinates";
-    const status = attrs.status || "closed";
-    const distanceKm = attrs.distance_km;
-    const hours = attrs.operating_hours_today;
-    const address = attrs.address;
-    const gmapsLink = attrs.gmaps_link;
-    const lat = attrs.latitude;
-    const lon = attrs.longitude;
+    const radiusKm = attrs.radius_km || 10;
+    const allNearby = attrs.all_nearby_markets || [];
     const marketsToday = attrs.markets_today || [];
     const openTodayCount = attrs.open_today_count || 0;
-    const radiusKm = attrs.radius_km || 10;
+    const openNowCount = attrs.open_now_count || 0;
 
-    let statusBadgeClass = "badge-closed";
-    let statusBadgeText = t.closed;
-    if (status === "open") {
-      statusBadgeClass = "badge-open";
-      statusBadgeText = t.openNow;
-    } else if (status === "opening_soon") {
-      statusBadgeClass = "badge-soon";
-      statusBadgeText = `${t.openingSoon} (${attrs.minutes_until_next_open || 0}m)`;
+    // Filter displayed markets
+    let displayedMarkets = allNearby;
+    if (this._filter === "today") {
+      displayedMarkets = marketsToday;
+    } else if (this._filter === "open") {
+      displayedMarkets = marketsToday.filter((m) => m.status === "open");
     }
 
-    // Styles
-    const style = `
-      <style>
-        ha-card {
-          overflow: hidden;
-          background: var(--card-background-color, #fff);
-          border-radius: var(--ha-card-border-radius, 16px);
-          font-family: var(--paper-font-body1_-_font-family, inherit);
-          box-shadow: var(--ha-card-box-shadow, 0 4px 12px rgba(0, 0, 0, 0.08));
-        }
-        .header-bg {
-          background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-          color: #fff;
-          padding: 16px 20px;
-          position: relative;
-        }
-        .header-top {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 12px;
-        }
-        .title {
-          font-size: 1.15rem;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          letter-spacing: -0.01em;
-        }
-        .target-pills {
-          display: flex;
-          gap: 6px;
-          flex-wrap: wrap;
-          margin-top: 4px;
-        }
-        .target-pill {
-          padding: 5px 12px;
-          border-radius: 9999px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          background: rgba(255, 255, 255, 0.12);
-          color: rgba(255, 255, 255, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          cursor: pointer;
-          transition: all 0.2s ease;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .target-pill.active {
-          background: #f59e0b;
-          color: #1e293b;
-          border-color: #f59e0b;
-          box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
-        }
-        .hero {
-          margin-top: 14px;
-          padding: 14px;
-          background: rgba(255, 255, 255, 0.08);
-          border-radius: 12px;
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-        }
-        .hero-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 6px;
-        }
-        .badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 3px 8px;
-          border-radius: 6px;
-          font-size: 0.72rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-        }
-        .badge-open {
-          background: #10b981;
-          color: #fff;
-        }
-        .badge-soon {
-          background: #f59e0b;
-          color: #1e293b;
-        }
-        .badge-closed {
-          background: rgba(255, 255, 255, 0.2);
-          color: rgba(255, 255, 255, 0.8);
-        }
-        .hero-name {
-          font-size: 1.25rem;
-          font-weight: 700;
-          margin: 4px 0;
-          color: #fff;
-        }
-        .hero-meta {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 12px;
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.85);
-          margin-top: 6px;
-        }
-        .hero-meta-item {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .hero-address {
-          font-size: 0.8rem;
-          color: rgba(255, 255, 255, 0.7);
-          margin-top: 8px;
-          line-height: 1.3;
-        }
-        .btn-nav {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          margin-top: 10px;
-          padding: 7px 14px;
-          border-radius: 8px;
-          background: #3b82f6;
-          color: #fff;
-          text-decoration: none;
-          font-size: 0.85rem;
-          font-weight: 600;
-          transition: background 0.2s ease;
-        }
-        .btn-nav:hover {
-          background: #2563eb;
-        }
-        .body-section {
-          padding: 16px 20px;
-        }
-        .tabs {
-          display: flex;
-          border-bottom: 2px solid var(--divider-color, #e2e8f0);
-          margin-bottom: 14px;
-        }
-        .tab {
-          padding: 8px 16px;
-          font-size: 0.9rem;
-          font-weight: 600;
-          color: var(--secondary-text-color, #64748b);
-          cursor: pointer;
-          border-bottom: 2px solid transparent;
-          margin-bottom: -2px;
-          transition: all 0.2s ease;
-        }
-        .tab.active {
-          color: #f59e0b;
-          border-color: #f59e0b;
-        }
-        .market-list {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .market-card {
-          padding: 12px 14px;
-          border-radius: 10px;
-          border: 1px solid var(--divider-color, #e2e8f0);
-          background: var(--card-background-color, #fff);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-        .market-card:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-        .market-info {
-          flex: 1;
-        }
-        .market-title {
-          font-weight: 600;
-          font-size: 0.95rem;
-          color: var(--primary-text-color, #1e293b);
-          margin-bottom: 3px;
-        }
-        .market-sub {
-          font-size: 0.8rem;
-          color: var(--secondary-text-color, #64748b);
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .dist-badge {
-          background: rgba(245, 158, 11, 0.15);
-          color: #b45309;
-          font-weight: 700;
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-size: 0.75rem;
-        }
-        .icon-btn {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--secondary-background-color, #f1f5f9);
-          color: var(--primary-text-color, #1e293b);
-          text-decoration: none;
-          transition: background 0.2s ease;
-        }
-        .icon-btn:hover {
-          background: #e2e8f0;
-        }
-        .empty-state {
-          text-align: center;
-          padding: 24px 16px;
-          color: var(--secondary-text-color, #64748b);
-          font-size: 0.9rem;
-        }
-      </style>
-    `;
+    // Origin coordinates
+    const originLat = attrs.target_latitude;
+    const originLon = attrs.target_longitude;
 
-    // Render target pills
-    const targetPillsHtml = targets
-      .map(
-        (tObj) => `
-        <button class="target-pill ${tObj.attributes.target === this._selectedTarget ? "active" : ""}"
-          data-target="${esc(tObj.attributes.target)}">
-          <ha-icon icon="${tObj.attributes.target === "zone.home" ? "mdi:home-variant" : "mdi:account"}" style="--mdc-icon-size: 14px;"></ha-icon>
-          ${esc(tObj.attributes.target_name || t.home)}
-        </button>
-      `
-      )
-      .join("");
-
-    // Render Hero Market
-    let heroHtml = "";
-    if (hasMarketToday) {
-      const navHref = lat && lon ? navUrl(lat, lon, nearestName) : gmapsLink || "#";
-      heroHtml = `
-        <div class="hero">
-          <div class="hero-header">
-            <span class="badge ${statusBadgeClass}">${statusBadgeText}</span>
-            <span style="font-size: 0.8rem; font-weight: 600; color: #f59e0b;">
-              ${distanceKm ? `${distanceKm} km ${t.distance}` : ""}
-            </span>
-          </div>
-          <div class="hero-name">${esc(nearestName)}</div>
-          <div class="hero-meta">
-            ${hours ? `<div class="hero-meta-item"><ha-icon icon="mdi:clock-outline" style="--mdc-icon-size: 16px;"></ha-icon> ${esc(hours)}</div>` : ""}
-            ${attrs.parking_available ? `<div class="hero-meta-item"><ha-icon icon="mdi:parking" style="--mdc-icon-size: 16px;"></ha-icon> ${t.parking}</div>` : ""}
-            ${attrs.has_prayer_room ? `<div class="hero-meta-item"><ha-icon icon="mdi:mosque" style="--mdc-icon-size: 16px;"></ha-icon> ${t.prayerRoom}</div>` : ""}
-          </div>
-          ${address ? `<div class="hero-address">${esc(address)}</div>` : ""}
-          <a class="btn-nav" href="${navHref}" target="_blank" rel="noopener noreferrer">
-            <ha-icon icon="mdi:navigation" style="--mdc-icon-size: 16px;"></ha-icon>
-            ${t.navigate}
-          </a>
-        </div>
-      `;
-    } else {
-      heroHtml = `
-        <div class="hero" style="text-align: center; padding: 20px;">
-          <ha-icon icon="mdi:store-off" style="--mdc-icon-size: 32px; opacity: 0.6; margin-bottom: 6px;"></ha-icon>
-          <div style="font-weight: 600; font-size: 0.95rem;">${t.noneToday}</div>
-          <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 4px;">Radius: ${radiusKm} km</div>
-        </div>
-      `;
-    }
-
-    // Render Markets Today List
-    let listHtml = "";
-    if (marketsToday.length > 0) {
-      listHtml = marketsToday
-        .map((m) => {
-          const mNav = m.latitude && m.longitude ? navUrl(m.latitude, m.longitude, m.name) : m.gmaps_link || "#";
-          return `
-          <div class="market-card">
-            <div class="market-info">
-              <div class="market-title">${esc(m.name)}</div>
-              <div class="market-sub">
-                <span class="dist-badge">${m.distance_km} km</span>
-                ${m.operating_hours ? `<span>⏰ ${esc(m.operating_hours)}</span>` : ""}
-                ${m.status === "open" ? `<span style="color: #10b981; font-weight: 600;">● ${t.openNow}</span>` : ""}
+    // Render skeleton if not built
+    if (!this.shadowRoot.getElementById("map")) {
+      this.shadowRoot.innerHTML = `
+        <link rel="stylesheet" href="${BASE}/leaflet.css?v=1.9.4">
+        <style>
+          :host {
+            --cpm-teal: #00a29a;
+            --cpm-teal-dark: #007a74;
+            --cpm-amber: #f59e0b;
+            --cpm-blue: #2563eb;
+            display: block;
+          }
+          ha-card {
+            overflow: hidden;
+            background: var(--card-background-color, #ffffff);
+            border-radius: var(--ha-card-border-radius, 16px);
+            font-family: var(--paper-font-body1_-_font-family, inherit);
+            box-shadow: var(--ha-card-box-shadow, 0 4px 16px rgba(0, 0, 0, 0.08));
+          }
+          .cpm-header {
+            padding: 14px 16px 12px;
+            background: var(--primary-background-color, #ffffff);
+            border-bottom: 1px solid var(--divider-color, #e2e8f0);
+          }
+          .cpm-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+          }
+          .cpm-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary-text-color, #0f172a);
+          }
+          .cpm-pills {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+          }
+          .cpm-pill {
+            padding: 5px 12px;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: var(--secondary-background-color, #f1f5f9);
+            color: var(--secondary-text-color, #64748b);
+            border: 1px solid var(--divider-color, #cbd5e1);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+          }
+          .cpm-pill.active {
+            background: #0f172a;
+            color: #ffffff;
+            border-color: #0f172a;
+          }
+          .cpm-filter-bar {
+            display: flex;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--card-background-color, #ffffff);
+            border-bottom: 1px solid var(--divider-color, #e2e8f0);
+            overflow-x: auto;
+          }
+          .cpm-filter-btn {
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: none;
+            border: 1px solid var(--divider-color, #e2e8f0);
+            color: var(--secondary-text-color, #64748b);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+          }
+          .cpm-filter-btn.active {
+            background: var(--cpm-teal);
+            color: #ffffff;
+            border-color: var(--cpm-teal);
+          }
+          #map {
+            width: 100%;
+            height: ${Number(this._config.map_height)}px;
+            position: relative;
+            z-index: 0;
+            background: #e2e8f0;
+          }
+          .leaflet-container {
+            font-family: inherit;
+          }
+          /* Card style popup matching pasarmalam.app */
+          .leaflet-popup-content-wrapper {
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+            padding: 0;
+            overflow: hidden;
+          }
+          .leaflet-popup-content {
+            margin: 0;
+            line-height: 1.4;
+          }
+          .cpm-popup {
+            padding: 14px 16px;
+            min-width: 250px;
+            max-width: 320px;
+          }
+          .cpm-pop-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 4px;
+          }
+          .cpm-pop-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.25;
+          }
+          .cpm-status-pill {
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            white-space: nowrap;
+          }
+          .cpm-status-open {
+            background: #dcfce7;
+            color: #15803d;
+          }
+          .cpm-status-soon {
+            background: #fef3c7;
+            color: #b45309;
+          }
+          .cpm-status-closed {
+            background: #e2e8f0;
+            color: #475569;
+          }
+          .cpm-pop-sub {
+            font-size: 0.82rem;
+            color: #64748b;
+            margin-bottom: 4px;
+          }
+          .cpm-pop-dist {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 4px;
+          }
+          .cpm-pop-countdown {
+            font-size: 0.82rem;
+            color: #0f766e;
+            font-weight: 500;
+            margin-bottom: 6px;
+          }
+          .cpm-pop-schedule {
+            font-size: 0.78rem;
+            color: #64748b;
+            margin-bottom: 8px;
+            line-height: 1.35;
+          }
+          .cpm-pop-amenities {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+          }
+          .cpm-amenity-tag {
+            font-size: 0.72rem;
+            font-weight: 600;
+            background: #dcfce7;
+            color: #166534;
+            padding: 2px 7px;
+            border-radius: 4px;
+          }
+          .cpm-pop-actions {
+            display: flex;
+            gap: 8px;
+          }
+          .cpm-btn {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-align: center;
+            text-decoration: none;
+            box-sizing: border-box;
+            transition: opacity 0.2s;
+          }
+          .cpm-btn:hover {
+            opacity: 0.9;
+          }
+          .cpm-btn-primary {
+            background: var(--cpm-teal);
+            color: #ffffff;
+          }
+          .cpm-btn-secondary {
+            background: #f1f5f9;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+          }
+          /* Blue pulsing user marker */
+          @keyframes cpmPulse {
+            0% { transform: scale(0.6); opacity: 0.9; }
+            100% { transform: scale(2.4); opacity: 0; }
+          }
+        </style>
+        <ha-card>
+          <div class="cpm-header">
+            <div class="cpm-title-row">
+              <div class="cpm-title">
+                <ha-icon icon="mdi:storefront" style="--mdc-icon-size: 24px; color: var(--cpm-teal);"></ha-icon>
+                ${esc(this._config.title)}
               </div>
             </div>
-            <a class="icon-btn" href="${mNav}" target="_blank" rel="noopener noreferrer" title="${t.navigate}">
-              <ha-icon icon="mdi:directions" style="--mdc-icon-size: 20px;"></ha-icon>
-            </a>
+            <div class="cpm-pills" id="targets-bar"></div>
           </div>
-        `;
-        })
-        .join("");
-    } else {
-      listHtml = `<div class="empty-state">${t.noneToday}</div>`;
-    }
+          <div class="cpm-filter-bar" id="filters-bar"></div>
+          <div id="map"></div>
+        </ha-card>
+      `;
 
-    this.shadowRoot.innerHTML = `
-      ${style}
-      <ha-card>
-        <div class="header-bg">
-          <div class="header-top">
-            <div class="title">
-              <ha-icon icon="mdi:storefront" style="--mdc-icon-size: 24px; color: #f59e0b;"></ha-icon>
-              ${esc(this._config.title)}
-            </div>
-          </div>
-          <div class="target-pills">
-            ${targetPillsHtml}
-          </div>
-          ${heroHtml}
-        </div>
-        <div class="body-section">
-          <div class="tabs">
-            <div class="tab active">${t.todayMarkets} (${openTodayCount})</div>
-          </div>
-          <div class="market-list">
-            ${listHtml}
-          </div>
-        </div>
-      </ha-card>
-    `;
-
-    // Attach click listeners to target pills
-    this.shadowRoot.querySelectorAll(".target-pill").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const target = e.currentTarget.getAttribute("data-target");
-        if (target && target !== this._selectedTarget) {
-          this._selectedTarget = target;
-          this._render();
+      // Attach ResizeObserver to keep leaflet crisp
+      const mapEl = this.shadowRoot.getElementById("map");
+      const ro = new ResizeObserver(() => {
+        if (this._map) {
+          this._map.invalidateSize();
         }
       });
+      ro.observe(mapEl);
+    }
+
+    // Update target switcher pills
+    const targetsBar = this.shadowRoot.getElementById("targets-bar");
+    if (targetsBar) {
+      targetsBar.innerHTML = targets
+        .map(
+          (tObj) => `
+          <button class="cpm-pill ${tObj.attributes.target === this._selectedTarget ? "active" : ""}"
+            data-target="${esc(tObj.attributes.target)}">
+            <ha-icon icon="${tObj.attributes.target === "zone.home" ? "mdi:home-variant" : "mdi:account"}" style="--mdc-icon-size: 14px;"></ha-icon>
+            ${esc(tObj.attributes.target_name || t.home)}
+          </button>
+        `
+        )
+        .join("");
+
+      targetsBar.querySelectorAll(".cpm-pill").forEach((btn) => {
+        btn.onclick = (e) => {
+          const target = e.currentTarget.getAttribute("data-target");
+          if (target && target !== this._selectedTarget) {
+            this._selectedTarget = target;
+            this._userInteracted = false;
+            this._render();
+          }
+        };
+      });
+    }
+
+    // Update filter bar
+    const filtersBar = this.shadowRoot.getElementById("filters-bar");
+    if (filtersBar) {
+      filtersBar.innerHTML = `
+        <button class="cpm-filter-btn ${this._filter === "today" ? "active" : ""}" data-filter="today">
+          ${t.today} (${openTodayCount})
+        </button>
+        <button class="cpm-filter-btn ${this._filter === "open" ? "active" : ""}" data-filter="open">
+          ${t.openNow} (${openNowCount})
+        </button>
+        <button class="cpm-filter-btn ${this._filter === "all" ? "active" : ""}" data-filter="all">
+          ${t.all} (${allNearby.length})
+        </button>
+      `;
+
+      filtersBar.querySelectorAll(".cpm-filter-btn").forEach((btn) => {
+        btn.onclick = (e) => {
+          const f = e.currentTarget.getAttribute("data-filter");
+          if (f && f !== this._filter) {
+            this._filter = f;
+            this._render();
+          }
+        };
+      });
+    }
+
+    // Initialize or update Map
+    loadLeaflet().then((L) => {
+      this._updateMap(L, displayedMarkets, originLat, originLon, t, lang);
     });
+  }
+
+  _updateMap(L, markets, originLat, originLon, t, lang) {
+    const mapEl = this.shadowRoot.getElementById("map");
+    if (!mapEl) return;
+
+    if (!this._map) {
+      const defaultLat = originLat || this._hass.config.latitude || 3.139;
+      const defaultLon = originLon || this._hass.config.longitude || 101.6869;
+
+      this._map = L.map(mapEl, {
+        zoomControl: true,
+        attributionControl: true,
+        scrollWheelZoom: true,
+      }).setView([defaultLat, defaultLon], 13);
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        referrerPolicy: "strict-origin-when-cross-origin",
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | CariPasarMalam',
+      }).addTo(this._map);
+
+      this._markersLayer = L.layerGroup().addTo(this._map);
+
+      this._map.on("dragstart", () => {
+        this._userInteracted = true;
+      });
+      this._map.on("zoomstart", () => {
+        this._userInteracted = true;
+      });
+    }
+
+    this._markersLayer.clearLayers();
+    const bounds = [];
+
+    // Add user/origin blue pulsing marker
+    if (originLat != null && originLon != null) {
+      const meIcon = L.divIcon({
+        className: "cpm-me-icon",
+        html: `
+          <div style="position: relative; width: 22px; height: 22px;">
+            <div style="
+              position: absolute;
+              inset: -4px;
+              border-radius: 50%;
+              background: rgba(37, 99, 235, 0.4);
+              animation: cpmPulse 2s infinite ease-out;
+            "></div>
+            <div style="
+              position: absolute;
+              top: 3px; left: 3px;
+              width: 16px; height: 16px;
+              border-radius: 50%;
+              background: #2563eb;
+              border: 2.5px solid #ffffff;
+              box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+            "></div>
+          </div>
+        `,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      });
+
+      const meMarker = L.marker([originLat, originLon], { icon: meIcon }).addTo(this._markersLayer);
+      meMarker.bindTooltip(t.currentLocation, { direction: "top", offset: [0, -10] });
+      bounds.push([originLat, originLon]);
+    }
+
+    // Add market markers
+    for (const m of markets) {
+      if (m.latitude == null || m.longitude == null) continue;
+      const mLat = Number(m.latitude);
+      const mLon = Number(m.longitude);
+      bounds.push([mLat, mLon]);
+
+      const isOpen = m.status === "open";
+      const isSoon = m.status === "opening_soon";
+
+      // Dark blue-gray round pin matching pasarmalam.app screenshot
+      const pinColor = isOpen ? "#10b981" : isSoon ? "#f59e0b" : "#334155";
+
+      const pinIcon = L.divIcon({
+        className: "cpm-market-pin",
+        html: `
+          <div style="
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: ${pinColor};
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            cursor: pointer;
+          ">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+          </div>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -16],
+      });
+
+      // Status pill HTML
+      let statusClass = "cpm-status-closed";
+      let statusText = t.closed;
+      let countdownText = "";
+
+      if (isOpen) {
+        statusClass = "cpm-status-open";
+        statusText = t.openNow;
+        if (m.minutes_until_close) {
+          countdownText = this._formatCountdown(m.minutes_until_close, true, t);
+        }
+      } else if (isSoon) {
+        statusClass = "cpm-status-soon";
+        statusText = t.openingSoon;
+        if (m.minutes_until_next_open) {
+          countdownText = this._formatCountdown(m.minutes_until_next_open, false, t);
+        }
+      } else if (m.minutes_until_next_open) {
+        countdownText = this._formatCountdown(m.minutes_until_next_open, false, t);
+      }
+
+      const distStr = m.distance_km != null ? `${m.distance_km} km ${t.fromHere}` : "";
+      const locStr = [m.district, m.state].filter(Boolean).join(", ");
+      const scheduleStr = this._formatScheduleDays(m.schedule, lang, t);
+      const directionsUrl = navUrl(mLat, mLon, m.name);
+      const detailsUrl = m.gmaps_link || `https://www.google.com/maps/search/?api=1&query=${mLat},${mLon}`;
+
+      const popupHtml = `
+        <div class="cpm-popup">
+          <div class="cpm-pop-top">
+            <div class="cpm-pop-title">${esc(m.name)}</div>
+            <span class="cpm-status-pill ${statusClass}">${statusText}</span>
+          </div>
+          ${locStr ? `<div class="cpm-pop-sub">${esc(locStr)}</div>` : ""}
+          ${distStr ? `<div class="cpm-pop-dist">${distStr}</div>` : ""}
+          ${countdownText ? `<div class="cpm-pop-countdown">${countdownText}</div>` : ""}
+          ${scheduleStr ? `<div class="cpm-pop-schedule">${esc(scheduleStr)}</div>` : ""}
+          <div class="cpm-pop-amenities">
+            ${m.parking_available ? `<span class="cpm-amenity-tag">${t.parking}</span>` : ""}
+            ${m.has_prayer_room ? `<span class="cpm-amenity-tag">${t.prayerRoom}</span>` : ""}
+            ${m.has_toilet ? `<span class="cpm-amenity-tag">${t.toilet}</span>` : ""}
+          </div>
+          <div class="cpm-pop-actions">
+            <a class="cpm-btn cpm-btn-primary" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">
+              ${t.getDirections}
+            </a>
+            <a class="cpm-btn cpm-btn-secondary" href="${detailsUrl}" target="_blank" rel="noopener noreferrer">
+              ${t.viewDetails}
+            </a>
+          </div>
+        </div>
+      `;
+
+      const marker = L.marker([mLat, mLon], { icon: pinIcon }).addTo(this._markersLayer);
+      marker.bindPopup(popupHtml, { maxWidth: 320 });
+    }
+
+    // Auto-fit bounds if user hasn't panned/zoomed
+    if (!this._userInteracted && bounds.length > 0) {
+      if (bounds.length === 1) {
+        this._map.setView(bounds[0], 14);
+      } else {
+        this._map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+      }
+    }
   }
 }
 
 customElements.define("caripasarmalam-card", CariPasarMalamCard);
 
-// Register in Home Assistant's Custom Card Picker
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "caripasarmalam-card",
-  name: "CariPasarMalam Card",
-  description: "Browse nearby night markets (pasar malam) with opening times, distances, and directions.",
+  name: "CariPasarMalam Map Card",
+  description: "Interactive Leaflet map showing nearby night markets with live popups, hours, and navigation.",
   preview: true,
   documentationURL: "https://github.com/zubir2k/homeassistant-caripasarmalam",
 });
 
 console.info(
-  `%c CARIPASARMALAM-CARD %c v${CARD_VERSION} `,
+  `%c CARIPASARMALAM-MAP-CARD %c v${CARD_VERSION} `,
   "color: white; background: #0f172a; font-weight: 700;",
-  "color: #1e293b; background: #f59e0b; font-weight: 700;"
+  "color: #ffffff; background: #00a29a; font-weight: 700;"
 );
