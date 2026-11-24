@@ -1,4 +1,4 @@
-# 🏪 Cari Pasar Malam for Home Assistant
+![CariPasarMalam](/custom_components/caripasarmalam/brand/dark_logo.png)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/default)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
