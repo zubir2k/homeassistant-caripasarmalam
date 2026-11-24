@@ -30,7 +30,7 @@ const T = {
     toilet: "Toilet",
     prayerRoom: "Surau",
     currentLocation: "Current location",
-    noSensor: "No Cari Pasar Malam sensors found in Home Assistant.",
+    noSensor: "No Cari Pasar Malam sensors found in Home Assistant. Please add the Cari Pasar Malam integration in Settings > Devices & Services.",
     noMarkets: "No markets found within search radius.",
     todayTag: "Today",
     daysFull: {
@@ -60,7 +60,7 @@ const T = {
     toilet: "Tandas",
     prayerRoom: "Surau",
     currentLocation: "Lokasi semasa",
-    noSensor: "Tiada sensor Cari Pasar Malam ditemui dalam Home Assistant.",
+    noSensor: "Tiada sensor Cari Pasar Malam ditemui dalam Home Assistant. Sila tambah integrasi Cari Pasar Malam di Tetapan > Peranti & Servis.",
     noMarkets: "Tiada pasar malam dijumpai dalam lingkungan.",
     todayTag: "Hari Ini",
     daysFull: {
@@ -147,6 +147,20 @@ class CariPasarMalamCard extends HTMLElement {
     this._render();
   }
 
+  static async getConfigElement() {
+    return document.createElement("caripasarmalam-card-editor");
+  }
+
+  static getStubConfig(hass) {
+    return {
+      title: "Cari Pasar Malam",
+      default_filter: "today",
+      map_height: 360,
+      show_target_chips: true,
+      show_filter_chips: true,
+    };
+  }
+
   getCardSize() {
     return 6;
   }
@@ -162,20 +176,34 @@ class CariPasarMalamCard extends HTMLElement {
   _getTargetEntities() {
     if (!this._hass) return [];
     const sensors = [];
+
+    // If card config specifies a specific entity
+    if (this._config.entity && this._hass.states[this._config.entity]) {
+      sensors.push(this._hass.states[this._config.entity]);
+      return sensors;
+    }
+
     for (const [entityId, stateObj] of Object.entries(this._hass.states)) {
-      if (
-        entityId.startsWith("sensor.") &&
-        entityId.endsWith("_nearest_market") &&
-        stateObj.attributes &&
-        stateObj.attributes.target
-      ) {
+      if (!entityId.startsWith("sensor.")) continue;
+      const attrs = stateObj.attributes || {};
+
+      // Match sensors produced by Cari Pasar Malam:
+      // Must contain target, radius_km, and all_nearby_markets
+      const isCariPasarMalamSensor =
+        (Array.isArray(attrs.all_nearby_markets) && attrs.target && "radius_km" in attrs) ||
+        (attrs.target && (entityId.includes("caripasarmalam") || entityId.includes("pasar_malam")) && "radius_km" in attrs);
+
+      if (isCariPasarMalamSensor) {
         sensors.push(stateObj);
       }
     }
+
     sensors.sort((a, b) => {
-      if (a.attributes.target === "zone.home") return -1;
-      if (b.attributes.target === "zone.home") return 1;
-      return (a.attributes.target_name || "").localeCompare(b.attributes.target_name || "");
+      const aTarget = a.attributes?.target || "";
+      const bTarget = b.attributes?.target || "";
+      if (aTarget === "zone.home") return -1;
+      if (bTarget === "zone.home") return 1;
+      return (a.attributes?.target_name || "").localeCompare(b.attributes?.target_name || "");
     });
     return sensors;
   }
@@ -721,6 +749,81 @@ class CariPasarMalamCard extends HTMLElement {
   }
 }
 
+class CariPasarMalamCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (s) => {
+        const labels = {
+          title: "Card Title (optional)",
+          entity: "Specific Sensor Entity (optional)",
+          default_filter: "Default Filter",
+          map_height: "Map Height (px)",
+          show_target_chips: "Show Location Target Chips (Home / Family)",
+          show_filter_chips: "Show Filter Chips (Today / Open Now / All)",
+        };
+        return labels[s.name] || s.name;
+      };
+      this._form.addEventListener("value-changed", (ev) => {
+        this._config = { ...ev.detail.value };
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: this._config },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      });
+      this.appendChild(this._form);
+    }
+
+    this._form.hass = this._hass;
+    this._form.data = {
+      title: "",
+      default_filter: "today",
+      map_height: 360,
+      show_target_chips: true,
+      show_filter_chips: true,
+      ...this._config,
+    };
+
+    this._form.schema = [
+      { name: "title", selector: { text: {} } },
+      {
+        name: "default_filter",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: [
+              { value: "today", label: "Open Today (Buka Hari Ini)" },
+              { value: "open", label: "Open Now (Buka Sekarang)" },
+              { value: "all", label: "All Nearby (Semua Berdekatan)" },
+            ],
+          },
+        },
+      },
+      {
+        name: "map_height",
+        selector: { number: { min: 200, max: 800, step: 20, mode: "slider" } },
+      },
+      { name: "show_target_chips", selector: { boolean: {} } },
+      { name: "show_filter_chips", selector: { boolean: {} } },
+    ];
+  }
+}
+
+customElements.define("caripasarmalam-card-editor", CariPasarMalamCardEditor);
 customElements.define("caripasarmalam-card", CariPasarMalamCard);
 
 window.customCards = window.customCards || [];
