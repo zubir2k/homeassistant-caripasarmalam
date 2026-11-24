@@ -343,37 +343,40 @@ class CariPasarMalamCard extends HTMLElement {
           }
           /* Card style popup matching pasarmalam.app */
           .leaflet-popup-content-wrapper {
-            border-radius: 14px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             padding: 0;
             overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.06);
           }
           .leaflet-popup-content {
             margin: 0;
-            line-height: 1.4;
+            line-height: 1.45;
           }
           .cpm-popup {
-            padding: 14px 16px;
-            min-width: 250px;
-            max-width: 320px;
+            padding: 18px 20px 16px;
+            min-width: 270px;
+            max-width: 340px;
+            font-family: var(--paper-font-body1_-_font-family, inherit);
           }
           .cpm-pop-top {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 8px;
-            margin-bottom: 4px;
+            gap: 12px;
+            margin-bottom: 6px;
           }
           .cpm-pop-title {
-            font-size: 1.05rem;
+            font-size: 1.15rem;
             font-weight: 700;
             color: #0f172a;
             line-height: 1.25;
+            letter-spacing: -0.01em;
           }
           .cpm-status-pill {
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             font-weight: 600;
-            padding: 2px 8px;
+            padding: 3px 10px;
             border-radius: 9999px;
             white-space: nowrap;
           }
@@ -390,68 +393,70 @@ class CariPasarMalamCard extends HTMLElement {
             color: #475569;
           }
           .cpm-pop-sub {
-            font-size: 0.82rem;
-            color: #64748b;
-            margin-bottom: 4px;
+            font-size: 0.88rem;
+            color: #475569;
+            margin-bottom: 6px;
           }
           .cpm-pop-dist {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #334155;
-            margin-bottom: 4px;
-          }
-          .cpm-pop-countdown {
-            font-size: 0.82rem;
-            color: #0f766e;
+            font-size: 0.88rem;
+            color: #1e293b;
             font-weight: 500;
             margin-bottom: 6px;
           }
-          .cpm-pop-schedule {
-            font-size: 0.78rem;
-            color: #64748b;
+          .cpm-pop-countdown {
+            font-size: 0.88rem;
+            color: #0f766e;
+            font-weight: 500;
             margin-bottom: 8px;
-            line-height: 1.35;
+          }
+          .cpm-pop-schedule {
+            font-size: 0.82rem;
+            color: #475569;
+            margin-bottom: 10px;
+            line-height: 1.4;
           }
           .cpm-pop-amenities {
             display: flex;
             gap: 6px;
             flex-wrap: wrap;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
           }
           .cpm-amenity-tag {
-            font-size: 0.72rem;
+            font-size: 0.75rem;
             font-weight: 600;
             background: #dcfce7;
             color: #166534;
-            padding: 2px 7px;
-            border-radius: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
           }
           .cpm-pop-actions {
             display: flex;
-            gap: 8px;
+            gap: 10px;
           }
           .cpm-btn {
             flex: 1;
-            padding: 8px 10px;
+            padding: 9px 12px;
             border-radius: 8px;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             font-weight: 600;
             text-align: center;
             text-decoration: none;
             box-sizing: border-box;
-            transition: opacity 0.2s;
+            transition: all 0.2s ease;
           }
           .cpm-btn:hover {
             opacity: 0.9;
+            transform: translateY(-1px);
           }
           .cpm-btn-primary {
             background: var(--cpm-teal);
             color: #ffffff;
+            box-shadow: 0 2px 6px rgba(0, 162, 154, 0.3);
           }
           .cpm-btn-secondary {
-            background: #f1f5f9;
-            color: #0f172a;
-            border: 1px solid #cbd5e1;
+            background: var(--cpm-teal);
+            color: #ffffff;
+            box-shadow: 0 2px 6px rgba(0, 162, 154, 0.3);
           }
           /* Blue pulsing user marker */
           @keyframes cpmPulse {
