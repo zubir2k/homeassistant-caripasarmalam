@@ -1,106 +1,103 @@
 /**
- * CariPasarMalam Card for Home Assistant
+ * Cari Pasar Malam Card
+ * Leaflet map + list of nearby markets for the Cari Pasar Malam integration
+ * (https://github.com/zubir2k/homeassistant-caripasarmalam).
  *
- * Interactive Leaflet Map card showing nearby night markets (pasar malam)
- * around Home and tracked persons with live status, distances, hours, and navigation.
+ * Data: CariPasarMalam (https://pasarmalam.app), community maintained, MIT.
+ * Map: Leaflet (BSD-2), bundled. Tiles: OpenStreetMap / CARTO.
  *
- * Modeled after pasarmalam.app/map and homeassistant-jejakmasjid.
  * MIT License
  */
 
-const CARD_VERSION = "0.2.0";
-const BASE = new URL(".", import.meta.url).pathname.replace(/\/$/, "");
-const VERSION = new URL(import.meta.url).searchParams.get("v") || CARD_VERSION;
+const CARD_VERSION = "0.1.0";
+const TZ = "Asia/Kuala_Lumpur";
+const BASE = new URL(".", import.meta.url).href; // .../caripasarmalam_static/
+const LEAFLET_JS = `${BASE}leaflet/leaflet.js`;
+const LEAFLET_CSS = `${BASE}leaflet/leaflet.css`;
 
-const T = {
-  en: {
-    title: "Cari Pasar Malam",
-    home: "Home",
-    all: "All Markets",
-    today: "Open Today",
-    openNow: "Open Now",
-    openingSoon: "Opening Soon",
-    closed: "Closed",
-    opensIn: "Opens in",
-    closesIn: "Closes in",
-    fromHere: "from here",
-    getDirections: "Get Directions",
-    viewDetails: "View Details",
-    parking: "Parking",
-    toilet: "Toilet",
-    prayerRoom: "Surau",
-    currentLocation: "Current location",
-    noSensor: "No Cari Pasar Malam sensors found in Home Assistant. Please add the Cari Pasar Malam integration in Settings > Devices & Services.",
-    noMarkets: "No markets found within search radius.",
-    todayTag: "Today",
-    daysFull: {
-      mon: "Monday",
-      tue: "Tuesday",
-      wed: "Wednesday",
-      thu: "Thursday",
-      fri: "Friday",
-      sat: "Saturday",
-      sun: "Sunday",
-    },
+const COLORS = {
+  open: { fg: "#16a34a", ring: "rgba(22,163,74,.30)" },
+  opening_soon: { fg: "#f59e0b", ring: "rgba(245,158,11,.35)" },
+  closed: { fg: "#64748b", ring: "rgba(100,116,139,.24)" },
+  unknown: { fg: "#94a3b8", ring: "rgba(148,163,184,.20)" },
+};
+
+const TILES = {
+  light: {
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 20,
+    referrerPolicy: "strict-origin-when-cross-origin",
   },
-  ms: {
-    title: "Cari Pasar Malam",
-    home: "Rumah",
-    all: "Semua",
-    today: "Buka Hari Ini",
-    openNow: "Buka Sekarang",
-    openingSoon: "Akan Buka",
-    closed: "Tutup",
-    opensIn: "Akan buka dalam",
-    closesIn: "Akan tutup dalam",
-    fromHere: "dari sini",
-    getDirections: "Pandu Arah",
-    viewDetails: "Maklumat Lanjut",
-    parking: "Parkir",
-    toilet: "Tandas",
-    prayerRoom: "Surau",
-    currentLocation: "Lokasi semasa",
-    noSensor: "Tiada sensor Cari Pasar Malam ditemui dalam Home Assistant. Sila tambah integrasi Cari Pasar Malam di Tetapan > Peranti & Servis.",
-    noMarkets: "Tiada pasar malam dijumpai dalam lingkungan.",
-    todayTag: "Hari Ini",
-    daysFull: {
-      mon: "Isnin",
-      tue: "Selasa",
-      wed: "Rabu",
-      thu: "Khamis",
-      fri: "Jumaat",
-      sat: "Sabtu",
-      sun: "Ahad",
-    },
+  dark: {
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 20,
+    referrerPolicy: "strict-origin-when-cross-origin",
   },
 };
 
-const esc = (s) =>
-  String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[c]
-  );
-
-const navUrl = (lat, lon, name) => {
-  const isAndroid = /Android/i.test(navigator.userAgent || "");
-  const isIos =
-    /iPhone|iPad|iPod/i.test(navigator.userAgent || "") ||
-    (/Macintosh/.test(navigator.userAgent || "") && navigator.maxTouchPoints > 1);
-
-  if (isAndroid) {
-    return `geo:${lat},${lon}?q=${lat},${lon}(${encodeURIComponent(name)})`;
-  }
-  if (isIos) {
-    return `maps://?daddr=${lat},${lon}&dirflg=d`;
-  }
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
+const T = {
+  ms: {
+    title: "Pasar Berdekatan",
+    open: "Dibuka",
+    opening_soon: "Buka sekejap lagi",
+    closed: "Tutup",
+    unknown: "Tiada jadual",
+    openNow: "dibuka sekarang",
+    closesAt: "Tutup",
+    closesIn: "Tutup dalam",
+    opensIn: "Dibuka dalam",
+    opensOn: "Dibuka",
+    today: "Hari ini",
+    away: "dari sini",
+    directions: "Arah",
+    details: "Butiran",
+    parking: "Parkir",
+    toilet: "Tandas",
+    surau: "Surau",
+    none: "Tiada pasar dalam radius",
+    noSensor: "Sensor tidak dijumpai",
+    loading: "Memuatkan peta...",
+    home: "Rumah",
+    midnight: "12 tengah malam",
+    days: { mon: "Isnin", tue: "Selasa", wed: "Rabu", thu: "Khamis", fri: "Jumaat", sat: "Sabtu", sun: "Ahad" },
+    h: "j",
+    m: "m",
+    d: "h",
+  },
+  en: {
+    title: "Markets Nearby",
+    open: "Open",
+    opening_soon: "Opening soon",
+    closed: "Closed",
+    unknown: "No schedule",
+    openNow: "open now",
+    closesAt: "Closes",
+    closesIn: "Closes in",
+    opensIn: "Opens in",
+    opensOn: "Opens",
+    today: "Today",
+    away: "away",
+    directions: "Directions",
+    details: "Details",
+    parking: "Parking",
+    toilet: "Toilet",
+    surau: "Prayer room",
+    none: "No markets within the radius",
+    noSensor: "Sensor not found",
+    loading: "Loading map...",
+    home: "Home",
+    midnight: "midnight",
+    days: { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" },
+    h: "h",
+    m: "m",
+    d: "d",
+  },
 };
 
 let leafletPromise;
@@ -109,734 +106,490 @@ function loadLeaflet() {
   if (!leafletPromise) {
     leafletPromise = new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = `${BASE}/leaflet.js?v=1.9.4`;
+      s.src = LEAFLET_JS;
+      s.async = true;
       s.onload = () => resolve(window.L);
-      s.onerror = () => reject(new Error("Leaflet failed to load"));
+      s.onerror = () => {
+        leafletPromise = undefined;
+        reject(new Error("Leaflet failed to load"));
+      };
       document.head.appendChild(s);
     });
   }
   return leafletPromise;
 }
 
+const esc = (v) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
 class CariPasarMalamCard extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
-    this._selectedTarget = null;
-    this._filter = "today"; // "today" | "all" | "open"
-    this._map = null;
-    this._markersLayer = null;
-    this._userInteracted = false;
+  static getStubConfig(hass) {
+    const ids = Object.keys(hass?.states || {}).filter(
+      (e) => e.startsWith("sensor.pasarmalam_") && e !== "sensor.pasarmalam_dataset"
+    );
+    const home = ids.find((e) => e === "sensor.pasarmalam_home");
+    return { entities: home ? [home, ...ids.filter((e) => e !== home)] : ids.slice(0, 3) };
+  }
+
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "entities", selector: { entity: { multiple: true, filter: { integration: "caripasarmalam", domain: "sensor" } } } },
+        { name: "title", selector: { text: {} } },
+        {
+          type: "grid",
+          name: "",
+          schema: [
+            { name: "map_height", selector: { number: { min: 150, max: 800, step: 10, unit_of_measurement: "px", mode: "box" } } },
+            { name: "list_limit", selector: { number: { min: 0, max: 50, step: 1, mode: "box" } } },
+          ],
+        },
+        {
+          type: "grid",
+          name: "",
+          schema: [
+            { name: "tiles", selector: { select: { options: ["auto", "light", "dark"], mode: "dropdown" } } },
+            { name: "language", selector: { select: { options: ["auto", "ms", "en"], mode: "dropdown" } } },
+          ],
+        },
+        { name: "show_closed", selector: { boolean: {} } },
+        { name: "show_radius", selector: { boolean: {} } },
+      ],
+      computeLabel: (s) =>
+        ({
+          entities: "Locations",
+          title: "Title",
+          map_height: "Map height",
+          list_limit: "Markets in list (0 hides the list)",
+          tiles: "Map style",
+          language: "Language",
+          show_closed: "Show closed markets",
+          show_radius: "Show search radius",
+        })[s.name],
+    };
   }
 
   setConfig(config) {
+    const entities = config.entities || (config.entity ? [config.entity] : []);
+    if (!entities.length) throw new Error("Add at least one sensor.pasarmalam_* entity");
     this._config = {
-      title: config.title || "Cari Pasar Malam",
-      map_height: config.map_height || 420,
-      filter: config.filter || "today",
-      language: config.language || "auto",
+      map_height: 320,
+      list_limit: 6,
+      tiles: "auto",
+      language: "auto",
+      show_closed: true,
+      show_radius: true,
       ...config,
+      entities: entities.map((e) => (typeof e === "string" ? e : e.entity)),
     };
-    if (["today", "all", "open"].includes(this._config.filter)) {
-      this._filter = this._config.filter;
+    this._active = this._config.entities[0];
+    this._fitted = null;
+    this._sig = null;
+    if (this._map) {
+      this._map.remove();
+      this._map = null;
     }
+    this._built = false;
+    if (this._hass) this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
     this._render();
-  }
-
-  static async getConfigElement() {
-    return document.createElement("caripasarmalam-card-editor");
-  }
-
-  static getStubConfig(hass) {
-    return {
-      title: "Cari Pasar Malam",
-      default_filter: "today",
-      map_height: 360,
-      show_target_chips: true,
-      show_filter_chips: true,
-    };
   }
 
   getCardSize() {
-    return 6;
+    return Math.ceil((this._config?.map_height || 320) / 50) + Math.min(this._config?.list_limit ?? 6, 6) + 1;
   }
 
-  _getLang() {
-    if (this._config.language === "ms" || this._config.language === "en") {
-      return this._config.language;
-    }
-    const haLang = this._hass?.language || navigator.language || "en";
-    return haLang.startsWith("ms") || haLang.startsWith("my") ? "ms" : "en";
+  getGridOptions() {
+    return { columns: 12, min_columns: 6, rows: "auto" };
   }
 
-  _getTargetEntities() {
-    if (!this._hass) return [];
-    const sensors = [];
+  connectedCallback() {
+    if (this._map) setTimeout(() => this._map && this._map.invalidateSize(), 0);
+  }
 
-    // If card config specifies a specific entity
-    if (this._config.entity && this._hass.states[this._config.entity]) {
-      sensors.push(this._hass.states[this._config.entity]);
-      return sensors;
+  disconnectedCallback() {
+    clearInterval(this._timer);
+    this._timer = null;
+  }
+
+  /* ---------- helpers ---------- */
+
+  get _t() {
+    const pick = this._config.language;
+    const lang = pick && pick !== "auto" ? pick : (this._hass?.locale?.language || this._hass?.language || "en");
+    return lang.startsWith("ms") ? T.ms : T.en;
+  }
+
+  get _dark() {
+    if (this._config.tiles === "dark") return true;
+    if (this._config.tiles === "light") return false;
+    return !!this._hass?.themes?.darkMode;
+  }
+
+  _dur(min) {
+    const t = this._t;
+    min = Math.max(0, Math.round(min));
+    if (min >= 1440) {
+      const d = Math.floor(min / 1440);
+      const h = Math.floor((min % 1440) / 60);
+      return h ? `${d}${t.d} ${h}${t.h}` : `${d}${t.d}`;
     }
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h ? `${h}${t.h} ${m}${t.m}` : `${m}${t.m}`;
+  }
 
-    for (const [entityId, stateObj] of Object.entries(this._hass.states)) {
-      if (!entityId.startsWith("sensor.")) continue;
-      const attrs = stateObj.attributes || {};
+  _time(iso) {
+    const hm = new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: TZ });
+    if (hm === "00:00" || hm === "24:00") return this._t.midnight;
+    const lang = this._t === T.ms ? "ms-MY" : "en-MY";
+    return new Date(iso).toLocaleTimeString(lang, { hour: "numeric", minute: "2-digit", timeZone: TZ });
+  }
 
-      // Match sensors produced by Cari Pasar Malam:
-      // Must contain target, radius_km, and all_nearby_markets
-      const isCariPasarMalamSensor =
-        (Array.isArray(attrs.all_nearby_markets) && attrs.target && "radius_km" in attrs) ||
-        (attrs.target && (entityId.includes("caripasarmalam") || entityId.includes("pasar_malam")) && "radius_km" in attrs);
+  _weekday(iso) {
+    const code = new Date(iso).toLocaleDateString("en-US", { weekday: "short", timeZone: TZ }).toLowerCase().slice(0, 3);
+    return this._t.days[code] || code;
+  }
 
-      if (isCariPasarMalamSensor) {
-        sensors.push(stateObj);
-      }
+  /** Live status text from the ISO times, so it stays right between sensor updates. */
+  _when(m) {
+    const t = this._t;
+    const now = Date.now();
+    if (m.status === "open" && m.closes_at) {
+      const left = (new Date(m.closes_at) - now) / 60000;
+      return left <= 120 ? `${t.closesIn} ${this._dur(left)}` : `${t.closesAt} ${this._time(m.closes_at)}`;
     }
+    if (m.opens_at) {
+      const wait = (new Date(m.opens_at) - now) / 60000;
+      if (wait < 24 * 60) return `${t.opensIn} ${this._dur(wait)}`;
+      return `${t.opensOn} ${this._weekday(m.opens_at)} ${this._time(m.opens_at)}`;
+    }
+    return t.unknown;
+  }
 
-    sensors.sort((a, b) => {
-      const aTarget = a.attributes?.target || "";
-      const bTarget = b.attributes?.target || "";
-      if (aTarget === "zone.home") return -1;
-      if (bTarget === "zone.home") return 1;
-      return (a.attributes?.target_name || "").localeCompare(b.attributes?.target_name || "");
+  _km(d) {
+    return d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(1)} km`;
+  }
+
+  _markets(st) {
+    const all = st?.attributes?.markets || [];
+    return this._config.show_closed ? all : all.filter((m) => m.status === "open" || m.status === "opening_soon");
+  }
+
+  /* ---------- render ---------- */
+
+  _shell() {
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const h = Number(this._config.map_height) || 320;
+    this.shadowRoot.innerHTML = `
+      <link rel="stylesheet" href="${LEAFLET_CSS}">
+      <style>${STYLE}</style>
+      <ha-card>
+        <div class="head">
+          <div class="title"></div>
+          <div class="count"></div>
+        </div>
+        <div class="tabs"></div>
+        <div class="mapwrap" style="height:${h}px">
+          <div class="map"></div>
+          <div class="loading">${esc(this._t.loading)}</div>
+        </div>
+        <div class="list"></div>
+        <div class="foot">Data: <a href="https://pasarmalam.app" target="_blank" rel="noopener">CariPasarMalam</a></div>
+      </ha-card>`;
+    this._el = {
+      title: this.shadowRoot.querySelector(".title"),
+      count: this.shadowRoot.querySelector(".count"),
+      tabs: this.shadowRoot.querySelector(".tabs"),
+      map: this.shadowRoot.querySelector(".map"),
+      loading: this.shadowRoot.querySelector(".loading"),
+      list: this.shadowRoot.querySelector(".list"),
+    };
+    this._el.tabs.addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-entity]");
+      if (!b) return;
+      this._active = b.dataset.entity;
+      this._fitted = null;
+      this._sig = null;
+      this._render();
     });
-    return sensors;
+    this._el.list.addEventListener("click", (ev) => {
+      const row = ev.target.closest("[data-id]");
+      if (!row || ev.target.closest("a")) return;
+      const mk = this._markers?.[row.dataset.id];
+      if (mk && this._map) {
+        this._map.closePopup();
+        this._map.once("moveend", () => mk.openPopup());
+        this._map.flyTo(mk.getLatLng(), Math.max(this._map.getZoom(), 15), { duration: 0.6 });
+      }
+    });
+    this._built = true;
+    this._initMap();
+    clearInterval(this._timer);
+    this._timer = setInterval(() => {
+      this._sig = null;
+      this._render();
+    }, 60000);
   }
 
-  _formatCountdown(minutes, isClosing, t) {
-    if (typeof minutes !== "number" || minutes <= 0) return "";
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    const timeStr = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
-    const prefix = isClosing ? t.closesIn : t.opensIn;
-    return `${prefix} ${timeStr}`;
-  }
-
-  _formatScheduleDays(schedule, lang, t) {
-    if (!Array.isArray(schedule) || schedule.length === 0) return "";
-    const parts = [];
-    const daysDict = t.daysFull;
-    for (const rule of schedule) {
-      if (!rule || !Array.isArray(rule.days)) continue;
-      const dayNames = rule.days.map((d) => daysDict[d] || d);
-      const times = rule.times || [];
-      const timeStr = times.map((tm) => `${tm.start || ""}-${tm.end || ""}`).join(", ");
-      parts.push(`${dayNames.join(", ")} ${timeStr}`);
+  async _initMap() {
+    try {
+      const L = await loadLeaflet();
+      if (this._map || !this._el) return;
+      this._map = L.map(this._el.map, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
+      this._tileDark = null;
+      this._layer = L.layerGroup().addTo(this._map);
+      this._map.setView([3.139, 101.6869], 11); // KL until we know better
+      this._map.on("focus", () => this._map.scrollWheelZoom.enable());
+      this._map.on("blur", () => this._map.scrollWheelZoom.disable());
+      new ResizeObserver(() => {
+        if (!this._map) return;
+        this._map.invalidateSize();
+        // A card built while hidden (another view, a closed tab) fits once it gets a size
+        if (this._fitted !== this._active) {
+          this._sig = null;
+          this._render();
+        }
+      }).observe(this._el.map);
+      this._el.loading.remove();
+      this._sig = null;
+      this._render();
+    } catch (e) {
+      if (this._el?.loading) this._el.loading.textContent = String(e.message || e);
     }
-    return parts.join("; ");
+  }
+
+  _setTiles(L) {
+    const dark = this._dark;
+    if (this._tiles && this._tileDark === dark) return;
+    if (this._tiles) this._map.removeLayer(this._tiles);
+    const cfg = dark ? TILES.dark : TILES.light;
+    this._tiles = L.tileLayer(cfg.url, cfg).addTo(this._map);
+    this._tileDark = dark;
   }
 
   _render() {
-    if (!this._hass || !this.shadowRoot) return;
+    if (!this._config || !this._hass) return;
+    if (!this._built) this._shell();
+    const t = this._t;
+    const hass = this._hass;
+    const st = hass.states[this._active];
 
-    const lang = this._getLang();
-    const t = T[lang] || T.en;
-    const targets = this._getTargetEntities();
+    // tabs
+    const ents = this._config.entities;
+    this._el.tabs.style.display = ents.length > 1 ? "" : "none";
+    if (ents.length > 1) {
+      this._el.tabs.innerHTML = ents
+        .map((e) => {
+          const s = hass.states[e];
+          const name = e === "sensor.pasarmalam_home" ? t.home : s?.attributes?.friendly_name?.replace(/^Cari Pasar Malam\s*/i, "") || e;
+          const n = s && !isNaN(Number(s.state)) ? Number(s.state) : 0;
+          return `<button class="tab ${e === this._active ? "on" : ""}" data-entity="${esc(e)}">${esc(name)}${n ? ` <b>${n}</b>` : ""}</button>`;
+        })
+        .join("");
+    }
 
-    if (!targets.length) {
-      this.shadowRoot.innerHTML = `
-        <ha-card style="padding: 24px; text-align: center; color: var(--secondary-text-color);">
-          <ha-icon icon="mdi:store-off" style="--mdc-icon-size: 40px; margin-bottom: 8px;"></ha-icon>
-          <div>${t.noSensor}</div>
-        </ha-card>
-      `;
+    this._el.title.textContent = this._config.title || t.title;
+    if (!st) {
+      this._el.count.textContent = "";
+      this._el.list.innerHTML = `<div class="empty">${esc(t.noSensor)}: ${esc(this._active)}</div>`;
       return;
     }
+    const open = Number(st.state) || 0;
+    this._el.count.innerHTML = open
+      ? `<span class="dot open"></span>${open} ${esc(t.openNow)}`
+      : `<span class="dot closed"></span>${esc(t.closed)}`;
 
-    if (!this._selectedTarget || !targets.some((s) => s.attributes.target === this._selectedTarget)) {
-      this._selectedTarget = targets[0].attributes.target;
-    }
+    // Skip map/list work when nothing changed (hass updates arrive constantly)
+    const sig = `${st.last_updated}|${this._active}|${this._dark}|${this._config.show_closed}`;
+    if (sig === this._sig) return;
+    this._sig = sig;
 
-    const currentSensor = targets.find((s) => s.attributes.target === this._selectedTarget) || targets[0];
-    const attrs = currentSensor.attributes || {};
-    const radiusKm = attrs.radius_km || 10;
-    const allNearby = attrs.all_nearby_markets || [];
-    const marketsToday = attrs.markets_today || [];
-    const openTodayCount = attrs.open_today_count || 0;
-    const openNowCount = attrs.open_now_count || 0;
-
-    // Filter displayed markets
-    let displayedMarkets = allNearby;
-    if (this._filter === "today") {
-      displayedMarkets = marketsToday;
-    } else if (this._filter === "open") {
-      displayedMarkets = marketsToday.filter((m) => m.status === "open");
-    }
-
-    // Origin coordinates
-    const originLat = attrs.target_latitude;
-    const originLon = attrs.target_longitude;
-
-    // Render skeleton if not built
-    if (!this.shadowRoot.getElementById("map")) {
-      this.shadowRoot.innerHTML = `
-        <link rel="stylesheet" href="${BASE}/leaflet.css?v=1.9.4">
-        <style>
-          :host {
-            --cpm-teal: #00a29a;
-            --cpm-teal-dark: #007a74;
-            --cpm-amber: #f59e0b;
-            --cpm-blue: #2563eb;
-            display: block;
-          }
-          ha-card {
-            overflow: hidden;
-            background: var(--card-background-color, #ffffff);
-            border-radius: var(--ha-card-border-radius, 16px);
-            font-family: var(--paper-font-body1_-_font-family, inherit);
-            box-shadow: var(--ha-card-box-shadow, 0 4px 16px rgba(0, 0, 0, 0.08));
-          }
-          .cpm-header {
-            padding: 14px 16px 12px;
-            background: var(--primary-background-color, #ffffff);
-            border-bottom: 1px solid var(--divider-color, #e2e8f0);
-          }
-          .cpm-title-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-          }
-          .cpm-title {
-            font-size: 1.15rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--primary-text-color, #0f172a);
-          }
-          .cpm-pills {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-          }
-          .cpm-pill {
-            padding: 5px 12px;
-            border-radius: 9999px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            background: var(--secondary-background-color, #f1f5f9);
-            color: var(--secondary-text-color, #64748b);
-            border: 1px solid var(--divider-color, #cbd5e1);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-          }
-          .cpm-pill.active {
-            background: #0f172a;
-            color: #ffffff;
-            border-color: #0f172a;
-          }
-          .cpm-filter-bar {
-            display: flex;
-            gap: 8px;
-            padding: 10px 16px;
-            background: var(--card-background-color, #ffffff);
-            border-bottom: 1px solid var(--divider-color, #e2e8f0);
-            overflow-x: auto;
-          }
-          .cpm-filter-btn {
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            background: none;
-            border: 1px solid var(--divider-color, #e2e8f0);
-            color: var(--secondary-text-color, #64748b);
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s ease;
-          }
-          .cpm-filter-btn.active {
-            background: var(--cpm-teal);
-            color: #ffffff;
-            border-color: var(--cpm-teal);
-          }
-          #map {
-            width: 100%;
-            height: ${Number(this._config.map_height)}px;
-            position: relative;
-            z-index: 0;
-            background: #e2e8f0;
-          }
-          .leaflet-container {
-            font-family: inherit;
-          }
-          /* Card style popup matching pasarmalam.app */
-          .leaflet-popup-content-wrapper {
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            padding: 0;
-            overflow: hidden;
-            border: 1px solid rgba(0, 0, 0, 0.06);
-          }
-          .leaflet-popup-content {
-            margin: 0;
-            line-height: 1.45;
-          }
-          .cpm-popup {
-            padding: 18px 20px 16px;
-            min-width: 270px;
-            max-width: 340px;
-            font-family: var(--paper-font-body1_-_font-family, inherit);
-          }
-          .cpm-pop-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 12px;
-            margin-bottom: 6px;
-          }
-          .cpm-pop-title {
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: #0f172a;
-            line-height: 1.25;
-            letter-spacing: -0.01em;
-          }
-          .cpm-status-pill {
-            font-size: 0.75rem;
-            font-weight: 600;
-            padding: 3px 10px;
-            border-radius: 9999px;
-            white-space: nowrap;
-          }
-          .cpm-status-open {
-            background: #dcfce7;
-            color: #15803d;
-          }
-          .cpm-status-soon {
-            background: #fef3c7;
-            color: #b45309;
-          }
-          .cpm-status-closed {
-            background: #e2e8f0;
-            color: #475569;
-          }
-          .cpm-pop-sub {
-            font-size: 0.88rem;
-            color: #475569;
-            margin-bottom: 6px;
-          }
-          .cpm-pop-dist {
-            font-size: 0.88rem;
-            color: #1e293b;
-            font-weight: 500;
-            margin-bottom: 6px;
-          }
-          .cpm-pop-countdown {
-            font-size: 0.88rem;
-            color: #0f766e;
-            font-weight: 500;
-            margin-bottom: 8px;
-          }
-          .cpm-pop-schedule {
-            font-size: 0.82rem;
-            color: #475569;
-            margin-bottom: 10px;
-            line-height: 1.4;
-          }
-          .cpm-pop-amenities {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            margin-bottom: 14px;
-          }
-          .cpm-amenity-tag {
-            font-size: 0.75rem;
-            font-weight: 600;
-            background: #dcfce7;
-            color: #166534;
-            padding: 3px 8px;
-            border-radius: 6px;
-          }
-          .cpm-pop-actions {
-            display: flex;
-            gap: 10px;
-          }
-          .cpm-btn {
-            flex: 1;
-            padding: 9px 12px;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-align: center;
-            text-decoration: none;
-            box-sizing: border-box;
-            transition: all 0.2s ease;
-          }
-          .cpm-btn:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-          }
-          .cpm-btn-primary {
-            background: var(--cpm-teal);
-            color: #ffffff;
-            box-shadow: 0 2px 6px rgba(0, 162, 154, 0.3);
-          }
-          .cpm-btn-secondary {
-            background: var(--cpm-teal);
-            color: #ffffff;
-            box-shadow: 0 2px 6px rgba(0, 162, 154, 0.3);
-          }
-          /* Blue pulsing user marker */
-          @keyframes cpmPulse {
-            0% { transform: scale(0.6); opacity: 0.9; }
-            100% { transform: scale(2.4); opacity: 0; }
-          }
-        </style>
-        <ha-card>
-          <div class="cpm-header">
-            <div class="cpm-title-row">
-              <div class="cpm-title">
-                <ha-icon icon="mdi:storefront" style="--mdc-icon-size: 24px; color: var(--cpm-teal);"></ha-icon>
-                ${esc(this._config.title)}
-              </div>
-            </div>
-            <div class="cpm-pills" id="targets-bar"></div>
-          </div>
-          <div class="cpm-filter-bar" id="filters-bar"></div>
-          <div id="map"></div>
-        </ha-card>
-      `;
-
-      // Attach ResizeObserver to keep leaflet crisp
-      const mapEl = this.shadowRoot.getElementById("map");
-      const ro = new ResizeObserver(() => {
-        if (this._map) {
-          this._map.invalidateSize();
-        }
-      });
-      ro.observe(mapEl);
-    }
-
-    // Update target switcher pills
-    const targetsBar = this.shadowRoot.getElementById("targets-bar");
-    if (targetsBar) {
-      targetsBar.innerHTML = targets
-        .map(
-          (tObj) => `
-          <button class="cpm-pill ${tObj.attributes.target === this._selectedTarget ? "active" : ""}"
-            data-target="${esc(tObj.attributes.target)}">
-            <ha-icon icon="${tObj.attributes.target === "zone.home" ? "mdi:home-variant" : "mdi:account"}" style="--mdc-icon-size: 14px;"></ha-icon>
-            ${esc(tObj.attributes.target_name || t.home)}
-          </button>
-        `
-        )
-        .join("");
-
-      targetsBar.querySelectorAll(".cpm-pill").forEach((btn) => {
-        btn.onclick = (e) => {
-          const target = e.currentTarget.getAttribute("data-target");
-          if (target && target !== this._selectedTarget) {
-            this._selectedTarget = target;
-            this._userInteracted = false;
-            this._render();
-          }
-        };
-      });
-    }
-
-    // Update filter bar
-    const filtersBar = this.shadowRoot.getElementById("filters-bar");
-    if (filtersBar) {
-      filtersBar.innerHTML = `
-        <button class="cpm-filter-btn ${this._filter === "today" ? "active" : ""}" data-filter="today">
-          ${t.today} (${openTodayCount})
-        </button>
-        <button class="cpm-filter-btn ${this._filter === "open" ? "active" : ""}" data-filter="open">
-          ${t.openNow} (${openNowCount})
-        </button>
-        <button class="cpm-filter-btn ${this._filter === "all" ? "active" : ""}" data-filter="all">
-          ${t.all} (${allNearby.length})
-        </button>
-      `;
-
-      filtersBar.querySelectorAll(".cpm-filter-btn").forEach((btn) => {
-        btn.onclick = (e) => {
-          const f = e.currentTarget.getAttribute("data-filter");
-          if (f && f !== this._filter) {
-            this._filter = f;
-            this._render();
-          }
-        };
-      });
-    }
-
-    // Initialize or update Map
-    loadLeaflet().then((L) => {
-      this._updateMap(L, displayedMarkets, originLat, originLon, t, lang);
-    });
+    const markets = this._markets(st);
+    this._renderList(markets);
+    if (this._map) this._renderMap(st, markets);
   }
 
-  _updateMap(L, markets, originLat, originLon, t, lang) {
-    const mapEl = this.shadowRoot.getElementById("map");
-    if (!mapEl) return;
-
-    if (!this._map) {
-      const defaultLat = originLat || this._hass.config.latitude || 3.139;
-      const defaultLon = originLon || this._hass.config.longitude || 101.6869;
-
-      this._map = L.map(mapEl, {
-        zoomControl: true,
-        attributionControl: true,
-        scrollWheelZoom: true,
-      }).setView([defaultLat, defaultLon], 13);
-
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        referrerPolicy: "strict-origin-when-cross-origin",
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Cari Pasar Malam',
-      }).addTo(this._map);
-
-      this._markersLayer = L.layerGroup().addTo(this._map);
-
-      this._map.on("dragstart", () => {
-        this._userInteracted = true;
-      });
-      this._map.on("zoomstart", () => {
-        this._userInteracted = true;
-      });
+  _renderList(markets) {
+    const t = this._t;
+    const limit = Number(this._config.list_limit ?? 6);
+    if (limit <= 0) {
+      this._el.list.innerHTML = "";
+      return;
     }
-
-    this._markersLayer.clearLayers();
-    const bounds = [];
-
-    // Add user/origin blue pulsing marker
-    if (originLat != null && originLon != null) {
-      const meIcon = L.divIcon({
-        className: "cpm-me-icon",
-        html: `
-          <div style="position: relative; width: 22px; height: 22px;">
-            <div style="
-              position: absolute;
-              inset: -4px;
-              border-radius: 50%;
-              background: rgba(37, 99, 235, 0.4);
-              animation: cpmPulse 2s infinite ease-out;
-            "></div>
-            <div style="
-              position: absolute;
-              top: 3px; left: 3px;
-              width: 16px; height: 16px;
-              border-radius: 50%;
-              background: #2563eb;
-              border: 2.5px solid #ffffff;
-              box-shadow: 0 2px 6px rgba(0,0,0,0.35);
-            "></div>
-          </div>
-        `,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
-      });
-
-      const meMarker = L.marker([originLat, originLon], { icon: meIcon }).addTo(this._markersLayer);
-      meMarker.bindTooltip(t.currentLocation, { direction: "top", offset: [0, -10] });
-      bounds.push([originLat, originLon]);
+    if (!markets.length) {
+      this._el.list.innerHTML = `<div class="empty">${esc(t.none)}</div>`;
+      return;
     }
-
-    // Add market markers
-    for (const m of markets) {
-      if (m.latitude == null || m.longitude == null) continue;
-      const mLat = Number(m.latitude);
-      const mLon = Number(m.longitude);
-      bounds.push([mLat, mLon]);
-
-      const isOpen = m.status === "open";
-      const isSoon = m.status === "opening_soon";
-
-      // Dark blue-gray round pin matching pasarmalam.app screenshot
-      const pinColor = isOpen ? "#10b981" : isSoon ? "#f59e0b" : "#334155";
-
-      const pinIcon = L.divIcon({
-        className: "cpm-market-pin",
-        html: `
-          <div style="
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: ${pinColor};
-            border: 2.5px solid #ffffff;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.35);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            cursor: pointer;
-          ">
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-            </svg>
+    this._el.list.innerHTML = markets
+      .slice(0, limit)
+      .map(
+        (m) => `
+        <div class="row" data-id="${esc(m.id)}">
+          <span class="dot ${esc(m.status)}"></span>
+          <div class="info">
+            <div class="name">${esc(m.name)}</div>
+            <div class="sub">${esc(this._when(m))} · ${esc(this._km(m.distance_km))}</div>
           </div>
-        `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-        popupAnchor: [0, -16],
-      });
+          <a class="go" href="${esc(this._dirUrl(m))}" target="_blank" rel="noopener" title="${esc(t.directions)}">
+            <ha-icon icon="mdi:directions"></ha-icon>
+          </a>
+        </div>`
+      )
+      .join("");
+  }
 
-      // Status pill HTML
-      let statusClass = "cpm-status-closed";
-      let statusText = t.closed;
-      let countdownText = "";
+  _dirUrl(m) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${m.latitude},${m.longitude}`;
+  }
 
-      if (isOpen) {
-        statusClass = "cpm-status-open";
-        statusText = t.openNow;
-        if (m.minutes_until_close) {
-          countdownText = this._formatCountdown(m.minutes_until_close, true, t);
-        }
-      } else if (isSoon) {
-        statusClass = "cpm-status-soon";
-        statusText = t.openingSoon;
-        if (m.minutes_until_next_open) {
-          countdownText = this._formatCountdown(m.minutes_until_next_open, false, t);
-        }
-      } else if (m.minutes_until_next_open) {
-        countdownText = this._formatCountdown(m.minutes_until_next_open, false, t);
-      }
-
-      const distStr = m.distance_km != null ? `${m.distance_km} km ${t.fromHere}` : "";
-      const locStr = [m.district, m.state].filter(Boolean).join(", ");
-      const scheduleStr = this._formatScheduleDays(m.schedule, lang, t);
-      const directionsUrl = navUrl(mLat, mLon, m.name);
-      const detailsUrl = m.gmaps_link || `https://www.google.com/maps/search/?api=1&query=${mLat},${mLon}`;
-
-      const popupHtml = `
-        <div class="cpm-popup">
-          <div class="cpm-pop-top">
-            <div class="cpm-pop-title">${esc(m.name)}</div>
-            <span class="cpm-status-pill ${statusClass}">${statusText}</span>
-          </div>
-          ${locStr ? `<div class="cpm-pop-sub">${esc(locStr)}</div>` : ""}
-          ${distStr ? `<div class="cpm-pop-dist">${distStr}</div>` : ""}
-          ${countdownText ? `<div class="cpm-pop-countdown">${countdownText}</div>` : ""}
-          ${scheduleStr ? `<div class="cpm-pop-schedule">${esc(scheduleStr)}</div>` : ""}
-          <div class="cpm-pop-amenities">
-            ${m.parking_available ? `<span class="cpm-amenity-tag">${t.parking}</span>` : ""}
-            ${m.has_prayer_room ? `<span class="cpm-amenity-tag">${t.prayerRoom}</span>` : ""}
-            ${m.has_toilet ? `<span class="cpm-amenity-tag">${t.toilet}</span>` : ""}
-          </div>
-          <div class="cpm-pop-actions">
-            <a class="cpm-btn cpm-btn-primary" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">
-              ${t.getDirections}
-            </a>
-            <a class="cpm-btn cpm-btn-secondary" href="${detailsUrl}" target="_blank" rel="noopener noreferrer">
-              ${t.viewDetails}
-            </a>
-          </div>
+  _popup(m) {
+    const t = this._t;
+    const c = COLORS[m.status] || COLORS.closed;
+    const chips = [m.parking && t.parking, m.toilet && t.toilet, m.prayer_room && t.surau]
+      .filter(Boolean)
+      .map((x) => `<span class="chip">${esc(x)}</span>`)
+      .join("");
+    const days = (m.days || []).map((d) => t.days[d] || d).join(", ");
+    const today = (m.today || []).length ? `${t.today}: ${m.today.join(", ")}` : days;
+    return `
+      <div class="pop">
+        <div class="ptop"><b>${esc(m.name)}</b>
+          <span class="badge" style="color:${c.fg};background:${c.ring}">${esc(t[m.status] || m.status)}</span></div>
+        <div class="pl">${esc([m.district, m.state].filter(Boolean).join(", "))}</div>
+        <div class="pl">${esc(this._km(m.distance_km))} ${esc(t.away)}</div>
+        <div class="pl">${esc(this._when(m))}</div>
+        ${today ? `<div class="pl muted">${esc(today)}</div>` : ""}
+        ${chips ? `<div class="chips">${chips}</div>` : ""}
+        <div class="btns">
+          <a href="${esc(this._dirUrl(m))}" target="_blank" rel="noopener">${esc(t.directions)}</a>
+          <a href="${esc(m.url || `https://pasarmalam.app/markets/${m.id}`)}" target="_blank" rel="noopener">${esc(t.details)}</a>
         </div>
-      `;
+      </div>`;
+  }
 
-      const marker = L.marker([mLat, mLon], { icon: pinIcon }).addTo(this._markersLayer);
-      marker.bindPopup(popupHtml, { maxWidth: 320 });
-    }
+  _renderMap(st, markets) {
+    const L = window.L;
+    this._setTiles(L);
+    const openPopup = this._openId;
+    this._layer.clearLayers();
+    this._markers = {};
 
-    // Auto-fit bounds if user hasn't panned/zoomed
-    if (!this._userInteracted && bounds.length > 0) {
-      if (bounds.length === 1) {
-        this._map.setView(bounds[0], 14);
-      } else {
-        this._map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    const origin = st.attributes.origin;
+    const radius = Number(st.attributes.radius_km) || 0;
+    const pts = [];
+
+    if (origin) {
+      const src = this._hass.states[st.attributes.source];
+      const pic = src?.attributes?.entity_picture;
+      const icon = pic
+        ? L.divIcon({ className: "", html: `<div class="me pic" style="background-image:url('${esc(pic)}')"></div>`, iconSize: [30, 30], iconAnchor: [15, 15] })
+        : L.divIcon({ className: "", html: `<div class="me"></div>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+      L.marker(origin, { icon, interactive: false, zIndexOffset: 1000 }).addTo(this._layer);
+      if (this._config.show_radius && radius) {
+        L.circle(origin, { radius: radius * 1000, color: "#3b82f6", weight: 1, dashArray: "4 4", fillOpacity: 0.04, interactive: false }).addTo(this._layer);
       }
+      pts.push(origin);
     }
-  }
-}
 
-class CariPasarMalamCardEditor extends HTMLElement {
-  setConfig(config) {
-    this._config = { ...config };
-    this._render();
-  }
-
-  set hass(hass) {
-    this._hass = hass;
-    this._render();
-  }
-
-  _render() {
-    if (!this._hass || !this._config) return;
-    if (!this._form) {
-      this._form = document.createElement("ha-form");
-      this._form.computeLabel = (s) => {
-        const labels = {
-          title: "Card Title (optional)",
-          entity: "Specific Sensor Entity (optional)",
-          default_filter: "Default Filter",
-          map_height: "Map Height (px)",
-          show_target_chips: "Show Location Target Chips (Home / Family)",
-          show_filter_chips: "Show Filter Chips (Today / Open Now / All)",
-        };
-        return labels[s.name] || s.name;
-      };
-      this._form.addEventListener("value-changed", (ev) => {
-        this._config = { ...ev.detail.value };
-        this.dispatchEvent(
-          new CustomEvent("config-changed", {
-            detail: { config: this._config },
-            bubbles: true,
-            composed: true,
-          })
-        );
+    for (const m of markets) {
+      const c = COLORS[m.status] || COLORS.closed;
+      const pulse = m.status === "open" ? " pulse" : "";
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="pin${pulse}" style="--fg:${c.fg};--ring:${c.ring}"><span></span></div>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+        popupAnchor: [0, -12],
       });
-      this.appendChild(this._form);
+      const z = { open: 600, opening_soon: 500, closed: 300, unknown: 200 }[m.status] || 0;
+      const mk = L.marker([m.latitude, m.longitude], { icon, title: m.name, zIndexOffset: z })
+        .bindPopup(this._popup(m), { maxWidth: 280, className: "cpm" })
+        .addTo(this._layer);
+      mk.on("popupopen", () => (this._openId = m.id));
+      mk.on("popupclose", () => {
+        if (this._openId === m.id) this._openId = null;
+      });
+      this._markers[m.id] = mk;
+      pts.push([m.latitude, m.longitude]);
     }
 
-    this._form.hass = this._hass;
-    this._form.data = {
-      title: "",
-      default_filter: "today",
-      map_height: 360,
-      show_target_chips: true,
-      show_filter_chips: true,
-      ...this._config,
-    };
-
-    this._form.schema = [
-      { name: "title", selector: { text: {} } },
-      {
-        name: "default_filter",
-        selector: {
-          select: {
-            mode: "dropdown",
-            options: [
-              { value: "today", label: "Open Today (Buka Hari Ini)" },
-              { value: "open", label: "Open Now (Buka Sekarang)" },
-              { value: "all", label: "All Nearby (Semua Berdekatan)" },
-            ],
-          },
-        },
-      },
-      {
-        name: "map_height",
-        selector: { number: { min: 200, max: 800, step: 20, mode: "slider" } },
-      },
-      { name: "show_target_chips", selector: { boolean: {} } },
-      { name: "show_filter_chips", selector: { boolean: {} } },
-    ];
+    // Fit once per location; afterwards leave the user's pan/zoom alone
+    this._map.invalidateSize();
+    const sized = this._el.map.clientWidth > 0 && this._el.map.clientHeight > 0;
+    if (sized && this._fitted !== this._active && pts.length) {
+      if (origin && radius && this._config.show_radius) {
+        this._map.fitBounds(L.latLng(origin).toBounds(radius * 2000), { padding: [10, 10], animate: false });
+      } else if (pts.length > 1) {
+        this._map.fitBounds(L.latLngBounds(pts), { padding: [24, 24], maxZoom: 15, animate: false });
+      } else {
+        this._map.setView(pts[0], 14, { animate: false });
+      }
+      this._fitted = this._active;
+    }
+    if (openPopup && this._markers[openPopup]) this._markers[openPopup].openPopup();
   }
 }
 
-customElements.define("caripasarmalam-card-editor", CariPasarMalamCardEditor);
-customElements.define("caripasarmalam-card", CariPasarMalamCard);
+const STYLE = `
+  :host { display:block; }
+  ha-card { overflow:hidden; }
+  .head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 8px; gap:8px; }
+  .title { font-size:1.15em; font-weight:500; color:var(--primary-text-color); }
+  .count { font-size:.9em; color:var(--secondary-text-color); display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .tabs { display:flex; gap:6px; padding:0 16px 10px; overflow-x:auto; scrollbar-width:none; }
+  .tab { border:1px solid var(--divider-color); background:none; color:var(--primary-text-color); border-radius:16px; padding:4px 12px; font:inherit; font-size:.85em; cursor:pointer; white-space:nowrap; }
+  .tab.on { background:var(--primary-color); border-color:var(--primary-color); color:var(--text-primary-color, #fff); }
+  .tab b { font-weight:600; margin-left:2px; }
+  .mapwrap { position:relative; }
+  .map { position:absolute; inset:0; z-index:0; background:var(--secondary-background-color); }
+  .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--secondary-text-color); }
+  .list { padding:4px 0; }
+  .row { display:flex; align-items:center; gap:12px; padding:8px 16px; cursor:pointer; }
+  .row:hover { background:var(--secondary-background-color); }
+  .info { flex:1; min-width:0; }
+  .name { color:var(--primary-text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub { color:var(--secondary-text-color); font-size:.85em; }
+  .go { color:var(--primary-color); display:flex; }
+  .empty { padding:12px 16px; color:var(--secondary-text-color); }
+  .foot { padding:4px 16px 10px; font-size:.75em; color:var(--secondary-text-color); text-align:right; }
+  .foot a { color:inherit; }
+  .dot { width:10px; height:10px; border-radius:50%; flex:none; display:inline-block; }
+  .dot.open { background:#16a34a; } .dot.opening_soon { background:#f59e0b; }
+  .dot.closed { background:#64748b; } .dot.unknown { background:#94a3b8; }
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "caripasarmalam-card",
-  name: "Cari Pasar Malam Map Card",
-  description: "Interactive Leaflet map showing nearby night markets with live popups, hours, and navigation.",
-  preview: true,
-  documentationURL: "https://github.com/zubir2k/homeassistant-caripasarmalam",
-});
+  .pin { width:26px; height:26px; border-radius:50%; background:var(--ring); display:flex; align-items:center; justify-content:center; position:relative; }
+  .pin span { width:14px; height:14px; border-radius:50%; background:var(--fg); border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.35); }
+  .pin.pulse::after { content:""; position:absolute; inset:0; border-radius:50%; background:var(--ring); animation:pulse 2s ease-out infinite; }
+  @keyframes pulse { from { transform:scale(1); opacity:.9; } to { transform:scale(2.2); opacity:0; } }
+  .me { width:16px; height:16px; border-radius:50%; background:#3b82f6; border:3px solid #fff; box-shadow:0 0 0 2px rgba(59,130,246,.35), 0 1px 4px rgba(0,0,0,.4); box-sizing:border-box; }
+  .me.pic { width:30px; height:30px; background-size:cover; background-position:center; border-width:2px; }
 
-console.info(
-  `%c CARIPASARMALAM-MAP-CARD %c v${CARD_VERSION} `,
-  "color: white; background: #0f172a; font-weight: 700;",
-  "color: #ffffff; background: #00a29a; font-weight: 700;"
-);
+  .cpm .leaflet-popup-content-wrapper { border-radius:12px; }
+  .cpm .leaflet-popup-content { margin:12px 14px; font-family:var(--paper-font-body1_-_font-family, inherit); }
+  .pop { font-size:13px; line-height:1.45; color:#1f2937; }
+  .ptop { padding-right:14px; display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:6px; }
+  .ptop b { font-size:14px; }
+  .badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+  .pl { margin:2px 0; } .muted { color:#6b7280; }
+  .chips { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+  .chip { background:#dcfce7; color:#166534; font-size:11px; padding:1px 6px; border-radius:4px; }
+  .btns { display:flex; gap:6px; margin-top:10px; }
+  .btns a { background:#0d9488; color:#fff !important; text-decoration:none; padding:5px 10px; border-radius:6px; font-size:12px; font-weight:500; }
+`;
+
+if (!customElements.get("caripasarmalam-card")) {
+  customElements.define("caripasarmalam-card", CariPasarMalamCard);
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: "caripasarmalam-card",
+    name: "Cari Pasar Malam",
+    description: "Map and list of pasar malam near Home and each person",
+    preview: false,
+    documentationURL: "https://github.com/zubir2k/homeassistant-caripasarmalam",
+  });
+  console.info(`%c CARI-PASAR-MALAM-CARD %c v${CARD_VERSION} `, "color:#fff;background:#0d9488;font-weight:700", "color:#0d9488;background:#fff");
+}

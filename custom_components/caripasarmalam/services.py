@@ -1,7 +1,8 @@
-"""Service actions for CariPasarMalam."""
+"""Service actions for Cari Pasar Malam."""
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import voluptuous as vol
@@ -16,8 +17,19 @@ from homeassistant.core import (
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
-from .const import DEFAULT_HOME_RADIUS, DOMAIN, MAX_RADIUS, MIN_RADIUS
+from .const import (
+    CONF_RADIUS,
+    DEFAULT_MAX_MARKETS,
+    DEFAULT_RADIUS,
+    DOMAIN,
+    MAX_MAX_MARKETS,
+    MAX_RADIUS,
+    MIN_MAX_MARKETS,
+    MIN_RADIUS,
+    OPENING_SOON_MINUTES,
+)
 from .coordinator import CariPasarMalamCoordinator
+from .markets import nearby
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +37,6 @@ SERVICE_GET_NEARBY = "get_nearby"
 
 ATTR_ENTITY_ID = "entity_id"
 ATTR_RADIUS = "radius"
-ATTR_DAY = "day"
 ATTR_LIMIT = "limit"
 
 GET_NEARBY_SCHEMA = vol.Schema(
@@ -33,32 +44,29 @@ GET_NEARBY_SCHEMA = vol.Schema(
         vol.Exclusive(ATTR_ENTITY_ID, "target"): cv.entity_id,
         vol.Inclusive(ATTR_LATITUDE, "coords"): cv.latitude,
         vol.Inclusive(ATTR_LONGITUDE, "coords"): cv.longitude,
-        vol.Optional(ATTR_RADIUS, default=DEFAULT_HOME_RADIUS): vol.All(
+        vol.Optional(ATTR_RADIUS, default=DEFAULT_RADIUS): vol.All(
             vol.Coerce(float), vol.Range(min=MIN_RADIUS, max=MAX_RADIUS)
         ),
-        vol.Optional(ATTR_DAY, default="today"): vol.In(
-            ["today", "tomorrow", "mon", "tue", "wed", "thu", "fri", "sat", "sun", "all"]
-        ),
-        vol.Optional(ATTR_LIMIT, default=10): vol.All(
-            vol.Coerce(int), vol.Range(min=1, max=50)
+        vol.Optional(ATTR_LIMIT, default=DEFAULT_MAX_MARKETS): vol.All(
+            vol.Coerce(int), vol.Range(min=MIN_MAX_MARKETS, max=MAX_MAX_MARKETS)
         ),
     }
 )
 
 
 def async_setup_services(hass: HomeAssistant) -> None:
-    """Register CariPasarMalam services."""
+    """Register Cari Pasar Malam services."""
 
     async def _handle_get_nearby(call: ServiceCall) -> ServiceResponse:
         """Handle get_nearby service call."""
         data = call.data
         entries = hass.config_entries.async_entries(DOMAIN)
         if not entries:
-            raise ServiceValidationError("CariPasarMalam integration is not loaded.")
+            raise ServiceValidationError("Cari Pasar Malam integration is not loaded.")
 
         coordinator: CariPasarMalamCoordinator = entries[0].runtime_data
         if not coordinator:
-            raise ServiceValidationError("CariPasarMalam coordinator is not initialized.")
+            raise ServiceValidationError("Cari Pasar Malam coordinator is not initialized.")
 
         # Determine coordinates
         if ATTR_LATITUDE in data and ATTR_LONGITUDE in data:
@@ -74,26 +82,28 @@ def async_setup_services(hass: HomeAssistant) -> None:
             lat = float(state.attributes[ATTR_LATITUDE])
             lon = float(state.attributes[ATTR_LONGITUDE])
 
-        radius_km = float(data.get(ATTR_RADIUS, DEFAULT_HOME_RADIUS))
-        day_filter = str(data.get(ATTR_DAY, "today"))
-        limit = int(data.get(ATTR_LIMIT, 10))
+        radius_km = float(data.get(ATTR_RADIUS, DEFAULT_RADIUS))
+        limit = int(data.get(ATTR_LIMIT, DEFAULT_MAX_MARKETS))
 
-        markets = coordinator.find_nearby_markets(
-            lat=lat,
-            lon=lon,
-            radius_km=radius_km,
-            day_filter=day_filter,
-            limit=limit,
+        res = nearby(
+            coordinator.markets,
+            lat,
+            lon,
+            radius_km,
+            limit,
+            datetime.now(timezone.utc),
+            OPENING_SOON_MINUTES,
         )
 
         return {
-            "count": len(markets),
-            "requested_day": day_filter,
+            "count": res.get("total", 0),
+            "open_count": res.get("open_count", 0),
+            "today_count": res.get("today_count", 0),
             "radius_km": radius_km,
             "latitude": lat,
             "longitude": lon,
-            "nearest": markets[0] if markets else None,
-            "markets": markets,
+            "nearest": res.get("featured"),
+            "markets": res.get("markets", []),
         }
 
     hass.services.async_register(
@@ -101,11 +111,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_GET_NEARBY,
         _handle_get_nearby,
         schema=GET_NEARBY_SCHEMA,
-        supports_response=SupportsResponse.OPTIONAL,
+        supports_response=SupportsResponse.ONLY,
     )
 
 
 def async_unload_services(hass: HomeAssistant) -> None:
-    """Unregister CariPasarMalam services."""
-    if hass.services.has_service(DOMAIN, SERVICE_GET_NEARBY):
-        hass.services.async_remove(DOMAIN, SERVICE_GET_NEARBY)
+    """Unregister Cari Pasar Malam services."""
+    hass.services.async_remove(DOMAIN, SERVICE_GET_NEARBY)

@@ -1,0 +1,205 @@
+{
+ "data": [
+  {
+   "id": "pasar-malam-sungai-long",
+   "name": "Pasar Malam Sungai Long",
+   "address": "Persiaran SL 1, Bandar Sungai Long, 43000 Kajang, Selangor",
+   "district": "Kajang",
+   "state": "Selangor",
+   "status": "Active",
+   "description": "A community night market in Bandar Sungai Long, serving local residents with various food and goods.",
+   "area_m2": 0,
+   "total_shop": null,
+   "parking": {
+    "available": true,
+    "accessible": true,
+    "notes": "Street parking available in the residential area."
+   },
+   "amenities": {
+    "toilet": false,
+    "prayer_room": false
+   },
+   "location": {
+    "latitude": 3.039822893,
+    "longitude": 101.7929011,
+    "gmaps_link": "https://maps.app.goo.gl/upCHdsnyFQUkkrcz7"
+   },
+   "schedule": [
+    {
+     "days": [
+      "tue"
+     ],
+     "times": [
+      {
+       "end": "00:00",
+       "note": "Tuesday night market",
+       "start": "16:00"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pasar-pagi-sungai-long",
+   "name": "Pasar Pagi Sungai Long",
+   "address": "Persiaran SL 1, Bandar Sungai Long, 43000 Kajang, Selangor",
+   "district": "Kajang",
+   "state": "Selangor",
+   "status": "Active",
+   "description": "A daily morning market in Bandar Sungai Long, serving local residents with fresh produce and daily necessities.",
+   "area_m2": 0,
+   "total_shop": null,
+   "parking": {
+    "available": true,
+    "accessible": true,
+    "notes": "Street parking available in the residential area."
+   },
+   "amenities": {
+    "toilet": false,
+    "prayer_room": false
+   },
+   "location": {
+    "latitude": 3.038743418,
+    "longitude": 101.7925397,
+    "gmaps_link": "https://maps.app.goo.gl/8gNa1b2GWy2zH3L46"
+   },
+   "schedule": [
+    {
+     "days": [
+      "mon",
+      "tue",
+      "wed",
+      "thu",
+      "fri",
+      "sat",
+      "sun"
+     ],
+     "times": [
+      {
+       "end": "12:00",
+       "note": "Daily morning market",
+       "start": "06:00"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pasar-malam-bandar-baru-bangi",
+   "name": "Pasar Malam Bandar Baru Bangi",
+   "address": "Jalan 6c/6, Taman Persiaran Bangi, 43650 Bandar Baru Bangi, Selangor",
+   "district": "43650 Bandar Baru Bangi",
+   "state": "Selangor",
+   "status": "Active",
+   "area_m2": 0,
+   "total_shop": null,
+   "parking": {
+    "available": false,
+    "accessible": false,
+    "notes": ""
+   },
+   "amenities": {
+    "toilet": false,
+    "prayer_room": false
+   },
+   "location": {
+    "latitude": 2.947983,
+    "longitude": 101.7576758,
+    "gmaps_link": "https://www.google.com/maps/place/Pasar+Malam+Bandar+Baru+Bangi/data=!4m7!3m6!1s0x31cdc96fb9a04777:0x12c81f65c7d181cd!8m2!3d2.947983!4d101.7576758!16s%2Fg%2F11g8_2cfs7!19sChIJd0eguW_JzTERzYHRx2UfyBI?authuser=0&hl=en&rclk=1"
+   },
+   "schedule": [
+    {
+     "days": [
+      "tue",
+      "sat"
+     ],
+     "times": [
+      {
+       "end": "22:00",
+       "start": "05:00"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pasar-malam-seksyen-7-bangi",
+   "name": "Pasar Malam Seksyen 7 Bangi",
+   "address": "12, Jalan 7/1a, Seksyen 7 Bandar Baru Bangi, 43000 Bandar Baru Bangi, Selangor",
+   "district": "43000 Bandar Baru Bangi",
+   "state": "Selangor",
+   "status": "Active",
+   "area_m2": 0,
+   "total_shop": null,
+   "parking": {
+    "available": false,
+    "accessible": false,
+    "notes": ""
+   },
+   "amenities": {
+    "toilet": false,
+    "prayer_room": false
+   },
+   "location": {
+    "latitude": 2.9673914,
+    "longitude": 101.77568749999999,
+    "gmaps_link": "https://www.google.com/maps/place/Pasar+malam+seksyen+7+Bangi/data=!4m7!3m6!1s0x31cdcbb702abab21:0x2c0dab23b52389ab!8m2!3d2.9673914!4d101.7756875!16s%2Fg%2F11sqck6bfs!19sChIJIaurArfLzTERq4kjtSOrDSw?authuser=0&hl=en&rclk=1"
+   },
+   "schedule": [
+    {
+     "days": [
+      "thu"
+     ],
+     "times": [
+      {
+       "end": "22:00",
+       "start": "05:30"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "pasar-malam-taman-jasmin",
+   "name": "Pasar Malam Taman Jasmin",
+   "address": "Jalan Jasmin 3, Taman Jasmin, 43000 Kajang, Selangor",
+   "district": "43000 Kajang",
+   "state": "Selangor",
+   "status": "Active",
+   "area_m2": 0,
+   "total_shop": null,
+   "parking": {
+    "available": false,
+    "accessible": false,
+    "notes": ""
+   },
+   "amenities": {
+    "toilet": false,
+    "prayer_room": false
+   },
+   "location": {
+    "latitude": 2.9832191,
+    "longitude": 101.81429729999999,
+    "gmaps_link": "https://www.google.com/maps/place/Pasar+Malam+Taman+Jasmin/data=!4m7!3m6!1s0x31cdcc65f58ba5d3:0xe909ae20f0318f47!8m2!3d2.9832191!4d101.8142973!16s%2Fg%2F1pzqs2fv9!19sChIJ06WL9WXMzTERR48x8CCuCek?authuser=0&hl=en&rclk=1"
+   },
+   "schedule": [
+    {
+     "days": [
+      "thu"
+     ],
+     "times": [
+      {
+       "end": "23:00",
+       "start": "04:00"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "meta": {
+  "count": 5,
+  "limit": 200,
+  "offset": 0
+ }
+}

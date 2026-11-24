@@ -1,350 +1,182 @@
-"""DataUpdateCoordinator for CariPasarMalam."""
+"""Coordinator: keeps the market dataset fresh and knows which locations to track.
+
+The dataset is fetched whole (about 1,150 markets in 6 calls) at most once a day and kept
+in .storage, so a restart does not refetch it. Every few minutes the coordinator rescans
+zone.home and every person entity with GPS; the sensors then work out distance and
+open/closed status locally, every minute, from the live coordinates.
+"""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_LATITUDE, ATTR_LONGITUDE, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.loader import async_get_integration
 
 from .const import (
-    API_MARKETS_URL,
-    API_PAGE_LIMIT,
-    CACHE_TTL_HOURS,
-    CONF_HOME_RADIUS,
-    CONF_PERSON_RADIUS,
-    CONF_TRACKED_PERSONS,
-    DEFAULT_HOME_RADIUS,
-    DEFAULT_PERSON_RADIUS,
-    DEFAULT_SCAN_INTERVAL,
+    API_MARKETS,
+    API_MAX_PAGES,
+    API_PAGE_SIZE,
+    DATASET_MAX_AGE_HOURS,
     DOMAIN,
-    MYT,
-    STORAGE_KEY,
-    STORAGE_VERSION,
-    VERSION,
-    WEEKDAY_CODES,
+    HOME,
+    LOCATION_SCAN_MINUTES,
+    USER_AGENT,
 )
-from .helpers import (
-    format_market_payload,
-    get_market_open_status,
-    haversine_distance,
-    is_market_open_today,
-)
+from .markets import Market
 
 _LOGGER = logging.getLogger(__name__)
+
+STORAGE_VERSION = 1
+STORAGE_KEY = f"{DOMAIN}.cache"
 
 type CariPasarMalamConfigEntry = ConfigEntry["CariPasarMalamCoordinator"]
 
 
-class CariPasarMalamCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Coordinator to fetch pasar malam data and track nearest markets."""
+def cache_store(hass: HomeAssistant) -> Store:
+    """Dataset kept in .storage so a restart or reload does not refetch it."""
+    return Store(hass, STORAGE_VERSION, STORAGE_KEY)
+
+
+class _HttpError(Exception):
+    def __init__(self, status: int) -> None:
+        super().__init__(f"HTTP {status}")
+        self.status = status
+
+
+async def async_fetch_all(session: aiohttp.ClientSession, user_agent: str) -> list[dict]:
+    """Every market from the public API, page by page."""
+    out: list[dict] = []
+    headers = {"User-Agent": user_agent, "Accept": "application/json"}
+    for page in range(API_MAX_PAGES):
+        params = {"limit": API_PAGE_SIZE, "offset": page * API_PAGE_SIZE}
+        async with session.get(
+            API_MARKETS, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
+        ) as resp:
+            if resp.status == 429:
+                retry = int(resp.headers.get("Retry-After", "5") or 5)
+                await asyncio.sleep(min(retry, 30))
+                raise _HttpError(429)
+            if resp.status != 200:
+                raise _HttpError(resp.status)
+            body = await resp.json(content_type=None)
+        data = body.get("data") or []
+        out.extend(data)
+        if len(data) < API_PAGE_SIZE:
+            break
+        await asyncio.sleep(0.5)  # be gentle with a free API
+    return out
+
+
+class CariPasarMalamCoordinator(DataUpdateCoordinator[dict]):
+    """Dataset + the list of locations (zone.home and people with GPS)."""
 
     config_entry: CariPasarMalamConfigEntry
 
     def __init__(self, hass: HomeAssistant, entry: CariPasarMalamConfigEntry) -> None:
-        """Initialize the coordinator."""
-        scan_interval = entry.options.get(
-            CONF_SCAN_INTERVAL,
-            entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-        )
         super().__init__(
             hass,
             _LOGGER,
             config_entry=entry,
             name="Cari Pasar Malam",
-            update_interval=timedelta(minutes=scan_interval),
+            update_interval=timedelta(minutes=LOCATION_SCAN_MINUTES),
         )
-        self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
-        self.markets: list[dict[str, Any]] = []
-        self.last_catalog_update: datetime | None = None
-        self._loaded_from_storage = False
+        self.markets: list[Market] = []
+        self.fetched: datetime | None = None
+        self.raw_count = 0
+        self.last_error: str | None = None
+        self._store = cache_store(hass)
+        self._loaded = False
+        self._user_agent: str | None = None
+
+    async def _ua(self) -> str:
+        if self._user_agent is None:
+            integration = await async_get_integration(self.hass, DOMAIN)
+            self._user_agent = USER_AGENT.format(version=integration.version or "0")
+        return self._user_agent
+
+    def _parse(self, raw: list[dict]) -> list[Market]:
+        return [m for m in (Market.from_api(r) for r in raw) if m is not None]
 
     async def _async_load_cache(self) -> None:
-        """Load cached markets from disk storage."""
-        if self._loaded_from_storage:
-            return
-        data = await self._store.async_load()
-        if data and isinstance(data, dict):
-            stored_markets = data.get("markets", [])
-            stored_ts = data.get("last_fetched")
-            if stored_markets and isinstance(stored_markets, list):
-                self.markets = stored_markets
-                if stored_ts:
-                    try:
-                        self.last_catalog_update = datetime.fromisoformat(stored_ts)
-                    except ValueError:
-                        self.last_catalog_update = None
-                _LOGGER.debug(
-                    "Loaded %d markets from storage (fetched at %s)",
-                    len(self.markets),
-                    stored_ts,
-                )
-        self._loaded_from_storage = True
+        self._loaded = True
+        try:
+            stored = await self._store.async_load() or {}
+            raw = stored.get("markets") or []
+            if raw:
+                self.markets = await self.hass.async_add_executor_job(self._parse, raw)
+                self.raw_count = len(raw)
+                self.fetched = datetime.fromisoformat(stored["fetched"])
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Ignoring unreadable Cari Pasar Malam cache: %s", err)
+            self.markets, self.fetched = [], None
 
-    async def _async_save_cache(self) -> None:
-        """Save current markets catalog to storage."""
-        await self._store.async_save({
-            "markets": self.markets,
-            "last_fetched": self.last_catalog_update.isoformat() if self.last_catalog_update else None,
-        })
+    def _stale(self) -> bool:
+        if not self.markets or self.fetched is None:
+            return True
+        return datetime.now(timezone.utc) - self.fetched > timedelta(hours=DATASET_MAX_AGE_HOURS)
 
-    async def async_fetch_all_markets(self, session: aiohttp.ClientSession) -> list[dict[str, Any]]:
-        """Fetch all markets from the pasarmalam.app API with pagination."""
-        headers = {
-            "User-Agent": f"HomeAssistant-CariPasarMalam/{VERSION} (+https://github.com/zubir2k/homeassistant-caripasarmalam)",
-            "Accept": "application/json",
-        }
-
-        all_markets: list[dict[str, Any]] = []
-        offset = 0
-
-        while True:
-            params: dict[str, Any] = {
-                "limit": API_PAGE_LIMIT,
-                "offset": offset,
-                "status": "Active",
-            }
-
-            try:
-                async with session.get(
-                    API_MARKETS_URL,
-                    params=params,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=20),
-                ) as resp:
-                    if resp.status == 429:
-                        _LOGGER.warning("Rate limited by pasarmalam.app API. Using cached dataset.")
-                        break
-                    if resp.status != 200:
-                        _LOGGER.error("API error %s when fetching markets offset %d", resp.status, offset)
-                        break
-
-                    payload = await resp.json()
-                    data = payload.get("data", [])
-                    if not data or not isinstance(data, list):
-                        break
-
-                    all_markets.extend(data)
-                    meta = payload.get("meta", {})
-                    count = meta.get("count", len(data))
-
-                    if count < API_PAGE_LIMIT or len(data) < API_PAGE_LIMIT:
-                        break
-
-                    offset += len(data)
-            except (aiohttp.ClientError, TimeoutError) as err:
-                _LOGGER.warning("Network error fetching markets catalog: %s", err)
-                break
-
-        return all_markets
-
-    async def _async_update_data(self) -> dict[str, Any]:
-        """Fetch fresh pasar malam data and calculate proximity for all tracked locations."""
+    async def _async_refresh_dataset(self) -> None:
         session = async_get_clientsession(self.hass)
-        await self._async_load_cache()
+        try:
+            raw = await async_fetch_all(session, await self._ua())
+        except (aiohttp.ClientError, TimeoutError, _HttpError, ValueError) as err:
+            self.last_error = str(err)
+            if self.markets:
+                _LOGGER.debug("Dataset refresh failed (%s); keeping the cached copy", err)
+                return
+            raise UpdateFailed(
+                translation_domain=DOMAIN,
+                translation_key="cannot_fetch",
+                translation_placeholders={"error": str(err)},
+            ) from err
+        if not raw:
+            self.last_error = "empty response"
+            if not self.markets:
+                raise UpdateFailed(translation_domain=DOMAIN, translation_key="empty_dataset")
+            return
+        self.markets = await self.hass.async_add_executor_job(self._parse, raw)
+        self.raw_count = len(raw)
+        self.fetched = datetime.now(timezone.utc)
+        self.last_error = None
+        await self._store.async_save({"fetched": self.fetched.isoformat(), "markets": raw})
+        _LOGGER.debug("Fetched %s markets (%s usable)", len(raw), len(self.markets))
 
-        now_myt = datetime.now(MYT)
-        cache_expired = (
-            self.last_catalog_update is None
-            or (now_myt - self.last_catalog_update) > timedelta(hours=CACHE_TTL_HOURS)
-            or not self.markets
-        )
-
-        if cache_expired:
-            _LOGGER.debug("Market catalog cache expired or empty. Refreshing from pasarmalam.app...")
-            fresh_markets = await self.async_fetch_all_markets(session)
-            if fresh_markets:
-                self.markets = fresh_markets
-                self.last_catalog_update = now_myt
-                await self._async_save_cache()
-            elif not self.markets:
-                raise UpdateFailed("Failed to fetch markets catalog and no local cache available.")
-
-        # Evaluate targets
-        today_code = WEEKDAY_CODES.get(now_myt.weekday(), "mon")
-        home_radius = float(
-            self.config_entry.options.get(
-                CONF_HOME_RADIUS,
-                self.config_entry.data.get(CONF_HOME_RADIUS, DEFAULT_HOME_RADIUS),
-            )
-        )
-        person_radius = float(
-            self.config_entry.options.get(
-                CONF_PERSON_RADIUS,
-                self.config_entry.data.get(CONF_PERSON_RADIUS, DEFAULT_PERSON_RADIUS),
-            )
-        )
-        tracked_persons = self.config_entry.options.get(
-            CONF_TRACKED_PERSONS,
-            self.config_entry.data.get(CONF_TRACKED_PERSONS, []),
-        )
-
-        locations_result: dict[str, Any] = {}
-
-        # 1. Process zone.home
-        home_state = self.hass.states.get("zone.home")
-        home_lat = (
-            float(home_state.attributes[ATTR_LATITUDE])
-            if home_state and ATTR_LATITUDE in home_state.attributes
-            else self.hass.config.latitude
-        )
-        home_lon = (
-            float(home_state.attributes[ATTR_LONGITUDE])
-            if home_state and ATTR_LONGITUDE in home_state.attributes
-            else self.hass.config.longitude
-        )
-
-        locations_result["zone.home"] = self._compute_location_summary(
-            lat=home_lat,
-            lon=home_lon,
-            radius_km=home_radius,
-            now=now_myt,
-            today_code=today_code,
-            name="Home",
-        )
-
-        # 2. Process person.* entities
-        all_persons = self.hass.states.async_entity_ids("person")
-        for person_id in all_persons:
-            # If user explicitly configured tracked persons and this person isn't in it, skip
-            if tracked_persons and person_id not in tracked_persons:
+    def locations(self) -> dict[str, dict[str, Any]]:
+        """zone.home and every person with GPS, with their live coordinates."""
+        found: dict[str, dict[str, Any]] = {}
+        home = self.hass.states.get(HOME)
+        if home and home.attributes.get("latitude") is not None:
+            found[HOME] = {
+                "latitude": home.attributes["latitude"],
+                "longitude": home.attributes["longitude"],
+                "name": home.attributes.get("friendly_name", "Home"),
+            }
+        for entity_id in self.hass.states.async_entity_ids("person"):
+            st = self.hass.states.get(entity_id)
+            if st is None:
                 continue
-
-            person_state = self.hass.states.get(person_id)
-            if not person_state:
+            lat, lon = st.attributes.get("latitude"), st.attributes.get("longitude")
+            if lat is None or lon is None:
                 continue
+            found[entity_id] = {
+                "latitude": lat,
+                "longitude": lon,
+                "name": st.attributes.get("friendly_name", entity_id.split(".", 1)[1]),
+            }
+        return found
 
-            lat = person_state.attributes.get(ATTR_LATITUDE)
-            lon = person_state.attributes.get(ATTR_LONGITUDE)
-            friendly_name = person_state.attributes.get("friendly_name", person_id.split(".")[-1])
-
-            if lat is not None and lon is not None:
-                locations_result[person_id] = self._compute_location_summary(
-                    lat=float(lat),
-                    lon=float(lon),
-                    radius_km=person_radius,
-                    now=now_myt,
-                    today_code=today_code,
-                    name=friendly_name,
-                )
-            else:
-                locations_result[person_id] = {
-                    "has_coordinates": False,
-                    "name": friendly_name,
-                    "nearest_market_today": None,
-                    "open_today_count": 0,
-                    "open_now_count": 0,
-                    "open_tonight": False,
-                    "markets_today": [],
-                    "all_nearby_markets": [],
-                }
-
-        return {
-            "catalog_count": len(self.markets),
-            "last_catalog_update": self.last_catalog_update.isoformat() if self.last_catalog_update else None,
-            "today_code": today_code,
-            "locations": locations_result,
-        }
-
-    def _compute_location_summary(
-        self,
-        lat: float,
-        lon: float,
-        radius_km: float,
-        now: datetime,
-        today_code: str,
-        name: str,
-    ) -> dict[str, Any]:
-        """Compute distances and open status for all markets relative to a coordinate point."""
-        nearby_all: list[dict[str, Any]] = []
-        nearby_today: list[dict[str, Any]] = []
-
-        for market in self.markets:
-            loc = market.get("location")
-            if not loc or "latitude" not in loc or "longitude" not in loc:
-                continue
-
-            m_lat = float(loc["latitude"])
-            m_lon = float(loc["longitude"])
-            dist = haversine_distance(lat, lon, m_lat, m_lon)
-
-            if dist <= radius_km:
-                payload = format_market_payload(market, distance_km=dist, now=now)
-                nearby_all.append(payload)
-
-                if is_market_open_today(market, today_code):
-                    nearby_today.append(payload)
-
-        # Sort both by distance ascending
-        nearby_all.sort(key=lambda m: m.get("distance_km", 9999))
-        nearby_today.sort(key=lambda m: m.get("distance_km", 9999))
-
-        nearest_today = nearby_today[0] if nearby_today else None
-        open_now_count = sum(1 for m in nearby_today if m.get("status") == "open")
-
-        return {
-            "has_coordinates": True,
-            "latitude": lat,
-            "longitude": lon,
-            "name": name,
-            "radius_km": radius_km,
-            "nearest_market_today": nearest_today,
-            "open_today_count": len(nearby_today),
-            "open_now_count": open_now_count,
-            "open_tonight": len(nearby_today) > 0,
-            "markets_today": nearby_today,
-            "all_nearby_markets": nearby_all,
-        }
-
-    def find_nearby_markets(
-        self,
-        lat: float,
-        lon: float,
-        radius_km: float,
-        day_filter: str = "today",
-        limit: int = 10,
-    ) -> list[dict[str, Any]]:
-        """Synchronously rank markets around any coordinate point (used by services/actions)."""
-        now_myt = datetime.now(MYT)
-        today_code = WEEKDAY_CODES.get(now_myt.weekday(), "mon")
-        tomorrow_code = WEEKDAY_CODES.get((now_myt.weekday() + 1) % 7, "tue")
-
-        day_req = day_filter.lower().strip()
-        if day_req == "today":
-            target_day: str | None = today_code
-        elif day_req == "tomorrow":
-            target_day = tomorrow_code
-        elif day_req in ("all", "any"):
-            target_day = None
-        elif day_req in WEEKDAY_CODES.values():
-            target_day = day_req
-        else:
-            target_day = today_code
-
-        results: list[dict[str, Any]] = []
-
-        for market in self.markets:
-            loc = market.get("location")
-            if not loc or "latitude" not in loc or "longitude" not in loc:
-                continue
-
-            m_lat = float(loc["latitude"])
-            m_lon = float(loc["longitude"])
-            dist = haversine_distance(lat, lon, m_lat, m_lon)
-
-            if dist <= radius_km:
-                if target_day is not None and not is_market_open_today(market, target_day):
-                    continue
-
-                payload = format_market_payload(market, distance_km=dist, now=now_myt)
-                results.append(payload)
-
-        results.sort(key=lambda m: m.get("distance_km", 9999))
-        return results[:limit]
+    async def _async_update_data(self) -> dict:
+        if not self._loaded:
+            await self._async_load_cache()
+        if self._stale():
+            await self._async_refresh_dataset()
+        return {"locations": self.locations(), "market_count": len(self.markets)}

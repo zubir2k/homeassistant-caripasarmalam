@@ -1,68 +1,57 @@
-"""Constants for the CariPasarMalam integration."""
+"""Constants for the Cari Pasar Malam integration."""
 from __future__ import annotations
 
-from zoneinfo import ZoneInfo
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 
 DOMAIN = "caripasarmalam"
-VERSION = "0.1.0"
+NAME = "Cari Pasar Malam"
 
-# Timezone
-MYT = ZoneInfo("Asia/Kuala_Lumpur")
+# Public, keyless API (https://github.com/muazhazali/caripasarmalam). Read-only,
+# 60 requests/minute per IP per route. limit is capped at 200 by the API.
+API_BASE = "https://pasarmalam.app/api/v1"
+API_MARKETS = f"{API_BASE}/markets"
+API_PAGE_SIZE = 200
+API_MAX_PAGES = 20  # safety stop: 4,000 markets
+MARKET_URL = "https://pasarmalam.app/markets/{id}"
 
-# Configuration keys
-CONF_HOME_RADIUS = "home_radius"
-CONF_PERSON_RADIUS = "person_radius"
-CONF_TRACKED_PERSONS = "tracked_persons"
-CONF_SCAN_INTERVAL = "scan_interval"
+# The API sits behind Cloudflare: an identifying User-Agent is answered, a browser-like
+# one gets 403 and a bare client a JS challenge. Always send this.
+USER_AGENT = "homeassistant-caripasarmalam/{version} (+https://github.com/zubir2k/homeassistant-caripasarmalam)"
 
-# Defaults
-DEFAULT_HOME_RADIUS = 10  # km
-DEFAULT_PERSON_RADIUS = 5  # km
-DEFAULT_SCAN_INTERVAL = 30  # minutes
+# The whole dataset is small (about 1,150 markets, 6 calls) so it is fetched in full
+# and distance/open status is worked out locally for every tracked location.
+DATASET_MAX_AGE_HOURS = 24
+# How often the coordinator rescans zone.home and person entities
+LOCATION_SCAN_MINUTES = 5
 
+# Options
+CONF_RADIUS = "radius"
+CONF_MAX_MARKETS = "max_markets"
+DEFAULT_RADIUS = 10  # km
 MIN_RADIUS = 1
 MAX_RADIUS = 50
+DEFAULT_MAX_MARKETS = 20
+MIN_MAX_MARKETS = 5
+MAX_MAX_MARKETS = 50
 
-# API Endpoints
-API_BASE_URL = "https://pasarmalam.app/api/v1"
-API_MARKETS_URL = f"{API_BASE_URL}/markets"
-API_PAGE_LIMIT = 200
-
-# Cache configuration
-STORAGE_VERSION = 1
-STORAGE_KEY = f"{DOMAIN}.cache"
-CACHE_TTL_HOURS = 24
-
-# Market status thresholds
+# Same threshold as the pasarmalam.app map
 OPENING_SOON_MINUTES = 120
 
-# Day mapping (Python weekday: 0=Mon, 6=Sun)
-WEEKDAY_CODES = {
-    0: "mon",
-    1: "tue",
-    2: "wed",
-    3: "thu",
-    4: "fri",
-    5: "sat",
-    6: "sun",
-}
+STATUS_OPEN = "open"
+STATUS_OPENING_SOON = "opening_soon"
+STATUS_CLOSED = "closed"
+STATUS_UNKNOWN = "unknown"  # no schedule in the dataset
 
-WEEKDAY_NAMES_EN = {
-    "mon": "Monday",
-    "tue": "Tuesday",
-    "wed": "Wednesday",
-    "thu": "Thursday",
-    "fri": "Friday",
-    "sat": "Saturday",
-    "sun": "Sunday",
-}
+HOME = "zone.home"
 
-WEEKDAY_NAMES_MS = {
-    "mon": "Isnin",
-    "tue": "Selasa",
-    "wed": "Rabu",
-    "thu": "Khamis",
-    "fri": "Jumaat",
-    "sat": "Sabtu",
-    "sun": "Ahad",
-}
+
+def get_device_info(entry_id: str) -> DeviceInfo:
+    """Shared service device for all Cari Pasar Malam entities."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry_id)},
+        name=NAME,
+        manufacturer="CariPasarMalam (pasarmalam.app)",
+        model="Market Directory",
+        entry_type=DeviceEntryType.SERVICE,
+        configuration_url="https://pasarmalam.app",
+    )

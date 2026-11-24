@@ -1,4 +1,19 @@
-"""Serve and register the bundled CariPasarMalam Lovelace card."""
+"""Serve and register the bundled Cari Pasar Malam Lovelace card.
+
+The card file ships inside the integration (frontend/caripasarmalam-card.js). Two things are
+needed for dashboards to use it:
+
+1. the folder has to be served over HTTP (a static path), and
+2. the browser has to be told to load the script.
+
+For (2) we prefer a real Lovelace *resource* (type "module"), the same way HACS cards and
+other integrations with bundled cards do. It is visible under Settings > Dashboards >
+Resources, Home Assistant reports a clear "Failed to load Lovelace resource" error in the
+browser console if it cannot be loaded, and it is loaded together with every other card.
+
+Dashboards whose resources are managed in YAML (or any case where the resource store is not
+usable) fall back to ``add_extra_js_url``, which injects the script into every page.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +41,12 @@ _LOCK_KEY = f"{DOMAIN}_card_lock"
 _LOVELACE_KEY = "lovelace"
 
 
+# --------------------------------------------------------------------------- #
+# Lovelace access. Home Assistant changed how this is exposed over the years:
+#   < 2025.2   hass.data["lovelace"] is a dict: {"mode": ..., "resources": ...}
+#   2025.2+    LovelaceData dataclass with .mode and .resources
+#   2026.2+    LovelaceData.resource_mode (.mode kept as a deprecated fallback)
+# --------------------------------------------------------------------------- #
 def _lovelace_resources(hass: HomeAssistant) -> tuple[str | None, Any]:
     """Return (resource_mode, resource_collection), or (None, None) if unavailable."""
     data = hass.data.get(_LOVELACE_KEY)
@@ -40,12 +61,16 @@ def _lovelace_resources(hass: HomeAssistant) -> tuple[str | None, Any]:
 
 
 async def _async_ensure_loaded(resources: Any) -> bool:
-    """Make sure the resource store has been read from disk."""
+    """Make sure the resource store has been read from disk.
+
+    Listing resources before that returns an empty list, which would make us create a
+    duplicate of an entry that already exists. Reading ``async_get_info`` loads the store.
+    """
     if getattr(resources, "loaded", True):
         return True
     try:
         await resources.async_get_info()
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - never let card registration break setup
         _LOGGER.debug("Could not load Lovelace resources", exc_info=True)
     return bool(getattr(resources, "loaded", False))
 
@@ -62,12 +87,21 @@ def _file_digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:8]
 
 
+# --------------------------------------------------------------------------- #
+# Public API
+# --------------------------------------------------------------------------- #
 async def async_register_card(hass: HomeAssistant) -> None:
-    """Serve the card and make dashboards load it."""
+    """Serve the card and make dashboards load it.
+
+    Called from ``async_setup`` and again from every ``async_setup_entry``. The static path
+    and the script injection can only be done once per Home Assistant run, so those are
+    guarded. The Lovelace resource is synced on every call, because deleting the last entry
+    removes it and adding the integration back (without a restart) must restore it.
+    """
     card_path = Path(__file__).parent / "frontend" / CARD_FILENAME
     is_file = await hass.async_add_executor_job(card_path.is_file)
     if not is_file:
-        _LOGGER.warning("CariPasarMalam card not found at %s", card_path)
+        _LOGGER.warning("Cari Pasar Malam card not found at %s", card_path)
         return
 
     lock = hass.data.setdefault(_LOCK_KEY, asyncio.Lock())
@@ -75,6 +109,8 @@ async def async_register_card(hass: HomeAssistant) -> None:
         url = hass.data.get(_URL_KEY)
         if url is None:
             await _async_register_static_path(hass, card_path.parent)
+            # The cache-busting version changes whenever the card file changes, so a card
+            # update always reaches browsers even if the integration version was not bumped.
             integration = await async_get_integration(hass, DOMAIN)
             digest = await hass.async_add_executor_job(_file_digest, card_path)
             url = f"{CARD_URL}?v={integration.version or '0'}-{digest}"
@@ -85,26 +121,28 @@ async def async_register_card(hass: HomeAssistant) -> None:
             try:
                 if await _async_ensure_loaded(resources):
                     await _async_sync_resource(resources, url)
-                    _LOGGER.debug("CariPasarMalam card registered as Lovelace resource %s", url)
+                    _LOGGER.debug("Cari Pasar Malam card registered as Lovelace resource %s", url)
                     hass.data[_REGISTERED_KEY] = True
                     return
                 _LOGGER.debug("Lovelace resources not loaded; injecting the card script instead")
             except Exception:  # noqa: BLE001
                 _LOGGER.warning(
-                    "Could not register the CariPasarMalam card as a Lovelace resource; "
+                    "Could not register the Cari Pasar Malam card as a Lovelace resource; "
                     "injecting the card script instead",
                     exc_info=True,
                 )
 
+        # YAML-managed resources, or the resource store was not usable. The injected script
+        # lives for the whole Home Assistant run, so add it only once.
         if not hass.data.get(_INJECTED_KEY):
             hass.data[_INJECTED_KEY] = True
             add_extra_js_url(hass, url)
-            _LOGGER.debug("CariPasarMalam card injected via add_extra_js_url: %s", url)
+            _LOGGER.debug("Cari Pasar Malam card injected via add_extra_js_url: %s", url)
         hass.data[_REGISTERED_KEY] = True
 
 
 async def async_unregister_card(hass: HomeAssistant) -> None:
-    """Remove our Lovelace resource."""
+    """Remove our Lovelace resource (called when the integration is removed)."""
     hass.data.pop(_REGISTERED_KEY, None)
     mode, resources = _lovelace_resources(hass)
     if mode != "storage" or resources is None:
@@ -115,24 +153,29 @@ async def async_unregister_card(hass: HomeAssistant) -> None:
         for item in _our_resources(resources):
             await resources.async_delete_item(item["id"])
     except Exception:  # noqa: BLE001
-        _LOGGER.debug("Could not remove the CariPasarMalam Lovelace resource", exc_info=True)
+        _LOGGER.debug("Could not remove the Cari Pasar Malam Lovelace resource", exc_info=True)
 
 
+# --------------------------------------------------------------------------- #
+# Internals
+# --------------------------------------------------------------------------- #
 async def _async_register_static_path(hass: HomeAssistant, folder: Path) -> None:
     try:
+        # HA 2024.7+
         from homeassistant.components.http import StaticPathConfig
 
         await hass.http.async_register_static_paths(
             [StaticPathConfig(CARD_URL_BASE, str(folder), cache_headers=False)]
         )
     except ImportError:
+        # Older HA
         hass.http.register_static_path(CARD_URL_BASE, str(folder), cache_headers=False)
     except RuntimeError:
-        _LOGGER.debug("CariPasarMalam static path already registered")
+        _LOGGER.debug("Cari Pasar Malam static path already registered")
 
 
 async def _async_sync_resource(resources: Any, url: str) -> None:
-    """Create our resource or update it."""
+    """Create our resource, or bring an existing one (even a manual one) up to date."""
     existing = _our_resources(resources)
 
     if not existing:

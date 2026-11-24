@@ -3,99 +3,59 @@
     "step": {
       "user": {
         "title": "Cari Pasar Malam",
-        "description": "Find nearby night markets (pasar malam) across Malaysia for your Home zone and tracked persons with live GPS coordinates.",
+        "description": "Night markets near your Home zone and near every person with GPS. Data from CariPasarMalam (pasarmalam.app), a community-maintained directory.",
         "data": {
-          "home_radius": "Home Search Radius (km)",
-          "person_radius": "Person Search Radius (km)",
-          "scan_interval": "Update Interval (minutes)"
+          "radius": "Radius",
+          "max_markets": "Markets listed per location"
         },
         "data_description": {
-          "home_radius": "Search radius around your Home zone in kilometers (1 to 50 km).",
-          "person_radius": "Search radius around each tracked person's current GPS location (1 to 50 km).",
-          "scan_interval": "How often to recalculate proximity and check market schedules (5 to 1440 minutes)."
+          "radius": "How far from Home and from each person to look for markets, in km.",
+          "max_markets": "Open markets come first, then those opening soon, nearest first. Used by the map card."
         }
       }
     },
     "error": {
-      "cannot_connect": "Could not connect to pasarmalam.app API. Please check your internet connection."
+      "cannot_connect": "Could not reach pasarmalam.app. Check your internet connection and try again."
     },
     "abort": {
-      "single_instance_allowed": "Cari Pasar Malam is already configured. Only a single instance is supported."
+      "single_instance_allowed": "Cari Pasar Malam is already set up.",
+      "already_configured": "Cari Pasar Malam is already set up."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Cari Pasar Malam Options",
-        "description": "Adjust search radius, tracked persons, and update intervals.",
+        "title": "Cari Pasar Malam",
         "data": {
-          "home_radius": "Home Search Radius (km)",
-          "person_radius": "Person Search Radius (km)",
-          "tracked_persons": "Tracked Persons",
-          "scan_interval": "Update Interval (minutes)"
+          "radius": "Radius",
+          "max_markets": "Markets listed per location"
         },
         "data_description": {
-          "home_radius": "Search radius around your Home zone in kilometers (1 to 50 km).",
-          "person_radius": "Search radius around each tracked person's current GPS location (1 to 50 km).",
-          "tracked_persons": "Select specific person entities to track, or leave empty to track all persons with GPS.",
-          "scan_interval": "How often to recalculate proximity and check market schedules (5 to 1440 minutes)."
+          "radius": "How far from Home and from each person to look for markets, in km.",
+          "max_markets": "Open markets come first, then those opening soon, nearest first. Used by the map card."
         }
       }
     }
   },
   "entity": {
     "sensor": {
-      "nearest_market": {
-        "name": "Nearest Pasar Malam Today"
+      "home": {
+        "name": "Home"
       },
-      "markets_today_count": {
-        "name": "Markets Open Today"
+      "person": {
+        "name": "{person}"
       },
-      "catalog_count": {
-        "name": "Total Markets in Catalog"
-      }
-    },
-    "binary_sensor": {
-      "open_tonight": {
-        "name": "Pasar Malam Open Tonight"
-      }
-    },
-    "calendar": {
-      "market_calendar": {
-        "name": "Pasar Malam Schedule"
+      "dataset": {
+        "name": "Dataset updated"
       }
     }
   },
-  "services": {
-    "get_nearby": {
-      "name": "Get Nearby Pasar Malam",
-      "description": "Find night markets (pasar malam) within a specified radius of a person, zone, or GPS coordinates.",
-      "fields": {
-        "entity_id": {
-          "name": "Location Entity",
-          "description": "The person or zone entity to search around. Defaults to zone.home."
-        },
-        "latitude": {
-          "name": "Latitude",
-          "description": "GPS Latitude (if not using an entity)."
-        },
-        "longitude": {
-          "name": "Longitude",
-          "description": "GPS Longitude (if not using an entity)."
-        },
-        "radius": {
-          "name": "Search Radius",
-          "description": "Search radius in kilometers."
-        },
-        "day": {
-          "name": "Day Filter",
-          "description": "Day to filter markets by ('today', 'tomorrow', 'all', or specific day like 'mon')."
-        },
-        "limit": {
-          "name": "Result Limit",
-          "description": "Maximum number of markets to return."
-        }
-      }
+  "exceptions": {
+    "cannot_fetch": {
+      "message": "Could not fetch markets from pasarmalam.app: {error}"
+    },
+    "empty_dataset": {
+      "message": "pasarmalam.app returned no markets."
     }
   }
 }
