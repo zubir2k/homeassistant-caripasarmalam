@@ -6,8 +6,10 @@
   ],
   "config_flow": true,
   "dependencies": [
-    "zone",
-    "person"
+    "frontend",
+    "http",
+    "person",
+    "zone"
   ],
   "documentation": "https://github.com/zubir2k/homeassistant-caripasarmalam",
   "integration_type": "service",
