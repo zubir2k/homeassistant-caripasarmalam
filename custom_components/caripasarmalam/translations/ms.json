@@ -1,0 +1,128 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "CariPasarMalam",
+        "description": "Cari pasar malam berdekatan di seluruh Malaysia untuk zon Rumah (Home) dan individu (person) berdasarkan koordinat GPS langsung.",
+        "data": {
+          "home_radius": "Jejari Carian Rumah (km)",
+          "person_radius": "Jejari Carian Individu (km)",
+          "state_filter": "Tapis mengikut Negeri",
+          "scan_interval": "Sela Masa Kemas Kini (minit)"
+        },
+        "data_description": {
+          "home_radius": "Jejari carian di sekitar zon Rumah dalam kilometer (1 hingga 50 km).",
+          "person_radius": "Jejari carian di sekitar lokasi GPS semasa individu (1 hingga 50 km).",
+          "state_filter": "Pilih 'all' untuk seluruh Malaysia, atau pilih negeri tertentu.",
+          "scan_interval": "Kekerapan mengira semula jarak dan menyemak jadual pasar malam (5 hingga 1440 minit)."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Tidak dapat menyambung ke API pasarmalam.app. Sila periksa sambungan internet anda."
+    },
+    "abort": {
+      "single_instance_allowed": "CariPasarMalam sudah dikonfigurasi. Hanya satu pemasangan dibenarkan."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Pilihan CariPasarMalam",
+        "description": "Ubah suai jejari carian, individu yang dijejaki, tapisan negeri, dan sela masa kemas kini.",
+        "data": {
+          "home_radius": "Jejari Carian Rumah (km)",
+          "person_radius": "Jejari Carian Individu (km)",
+          "state_filter": "Tapis mengikut Negeri",
+          "tracked_persons": "Individu yang Dijejaki",
+          "scan_interval": "Sela Masa Kemas Kini (minit)"
+        },
+        "data_description": {
+          "home_radius": "Jejari carian di sekitar zon Rumah dalam kilometer (1 hingga 50 km).",
+          "person_radius": "Jejari carian di sekitar lokasi GPS semasa individu (1 hingga 50 km).",
+          "state_filter": "Pilih 'all' untuk seluruh Malaysia, atau pilih negeri tertentu.",
+          "tracked_persons": "Pilih entiti individu tertentu untuk dijejaki, atau biarkan kosong untuk menjejaki semua orang dengan GPS.",
+          "scan_interval": "Kekerapan mengira semula jarak dan menyemak jadual pasar malam (5 hingga 1440 minit)."
+        }
+      }
+    }
+  },
+  "selector": {
+    "state_filter": {
+      "options": {
+        "all": "Semua Negeri (All States)",
+        "Johor": "Johor",
+        "Kedah": "Kedah",
+        "Kelantan": "Kelantan",
+        "Kuala Lumpur": "Kuala Lumpur",
+        "Labuan": "Labuan",
+        "Melaka": "Melaka",
+        "Negeri Sembilan": "Negeri Sembilan",
+        "Pahang": "Pahang",
+        "Pulau Pinang": "Pulau Pinang",
+        "Perak": "Perak",
+        "Perlis": "Perlis",
+        "Putrajaya": "Putrajaya",
+        "Sabah": "Sabah",
+        "Sarawak": "Sarawak",
+        "Selangor": "Selangor",
+        "Terengganu": "Terengganu"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "nearest_market": {
+        "name": "Pasar Malam Terdekat Hari Ini"
+      },
+      "markets_today_count": {
+        "name": "Bilangan Pasar Malam Buka Hari Ini"
+      },
+      "catalog_count": {
+        "name": "Jumlah Pasar Malam dalam Katalog"
+      }
+    },
+    "binary_sensor": {
+      "open_tonight": {
+        "name": "Ada Pasar Malam Buka Malam Ini"
+      }
+    },
+    "calendar": {
+      "market_calendar": {
+        "name": "Jadual Pasar Malam"
+      }
+    }
+  },
+  "services": {
+    "get_nearby": {
+      "name": "Dapatkan Pasar Malam Berdekatan",
+      "description": "Cari pasar malam dalam jejari yang ditetapkan di sekitar individu, zon, atau koordinat GPS.",
+      "fields": {
+        "entity_id": {
+          "name": "Entiti Lokasi",
+          "description": "Entiti individu atau zon untuk dicari di sekitarnya. Lalai kepada zone.home."
+        },
+        "latitude": {
+          "name": "Latitud",
+          "description": "Latitud GPS (jika tidak menggunakan entiti)."
+        },
+        "longitude": {
+          "name": "Longitud",
+          "description": "Longitud GPS (jika tidak menggunakan entiti)."
+        },
+        "radius": {
+          "name": "Jejari Carian",
+          "description": "Jejari carian dalam kilometer."
+        },
+        "day": {
+          "name": "Penapis Hari",
+          "description": "Hari untuk menapis pasar malam ('today', 'tomorrow', 'all', atau hari khusus seperti 'mon')."
+        },
+        "limit": {
+          "name": "Had Keputusan",
+          "description": "Bilangan maksimum pasar malam yang dikembalikan."
+        }
+      }
+    }
+  }
+}

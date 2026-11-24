@@ -1,0 +1,20 @@
+{
+  "domain": "caripasarmalam",
+  "name": "CariPasarMalam",
+  "codeowners": [
+    "@zubir2k"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "zone",
+    "person"
+  ],
+  "documentation": "https://github.com/zubir2k/homeassistant-caripasarmalam",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/zubir2k/homeassistant-caripasarmalam/issues",
+  "quality_scale": "silver",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.0"
+}

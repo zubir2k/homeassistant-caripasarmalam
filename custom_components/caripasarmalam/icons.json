@@ -1,0 +1,34 @@
+{
+  "entity": {
+    "sensor": {
+      "nearest_market": {
+        "default": "mdi:store-marker"
+      },
+      "markets_today_count": {
+        "default": "mdi:counter"
+      },
+      "catalog_count": {
+        "default": "mdi:database"
+      }
+    },
+    "binary_sensor": {
+      "open_tonight": {
+        "default": "mdi:store-check",
+        "state": {
+          "on": "mdi:store-check",
+          "off": "mdi:store-remove"
+        }
+      }
+    },
+    "calendar": {
+      "market_calendar": {
+        "default": "mdi:calendar-star"
+      }
+    }
+  },
+  "services": {
+    "get_nearby": {
+      "service": "mdi:store-search"
+    }
+  }
+}

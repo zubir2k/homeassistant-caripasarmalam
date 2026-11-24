@@ -1,0 +1,86 @@
+get_nearby:
+  name: Get Nearby Pasar Malam
+  description: Find night markets (pasar malam) within a specified radius of a person, zone, or GPS coordinates.
+  fields:
+    entity_id:
+      name: Location Entity
+      description: The person or zone entity to search around (e.g., person.zubir or zone.home). Defaults to zone.home if omitted.
+      required: false
+      selector:
+        entity:
+          domain:
+            - person
+            - zone
+    latitude:
+      name: Latitude
+      description: GPS Latitude (if not using an entity).
+      required: false
+      example: 2.9935
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: 0.0001
+          mode: box
+    longitude:
+      name: Longitude
+      description: GPS Longitude (if not using an entity).
+      required: false
+      example: 101.7871
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: 0.0001
+          mode: box
+    radius:
+      name: Search Radius (km)
+      description: Search radius in kilometers.
+      required: false
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          unit_of_measurement: km
+          mode: slider
+    day:
+      name: Day Filter
+      description: Day to filter markets by.
+      required: false
+      default: today
+      selector:
+        select:
+          options:
+            - label: Today
+              value: today
+            - label: Tomorrow
+              value: tomorrow
+            - label: All Days
+              value: all
+            - label: Monday (Isnin)
+              value: mon
+            - label: Tuesday (Selasa)
+              value: tue
+            - label: Wednesday (Rabu)
+              value: wed
+            - label: Thursday (Khamis)
+              value: thu
+            - label: Friday (Jumaat)
+              value: fri
+            - label: Saturday (Sabtu)
+              value: sat
+            - label: Sunday (Ahad)
+              value: sun
+    limit:
+      name: Result Limit
+      description: Maximum number of markets to return.
+      required: false
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          mode: box
