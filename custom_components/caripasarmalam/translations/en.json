@@ -2,18 +2,16 @@
   "config": {
     "step": {
       "user": {
-        "title": "CariPasarMalam",
+        "title": "Cari Pasar Malam",
         "description": "Find nearby night markets (pasar malam) across Malaysia for your Home zone and tracked persons with live GPS coordinates.",
         "data": {
           "home_radius": "Home Search Radius (km)",
           "person_radius": "Person Search Radius (km)",
-          "state_filter": "Filter by State",
           "scan_interval": "Update Interval (minutes)"
         },
         "data_description": {
           "home_radius": "Search radius around your Home zone in kilometers (1 to 50 km).",
           "person_radius": "Search radius around each tracked person's current GPS location (1 to 50 km).",
-          "state_filter": "Choose 'all' for all Malaysia, or select a specific state to filter.",
           "scan_interval": "How often to recalculate proximity and check market schedules (5 to 1440 minutes)."
         }
       }
@@ -22,51 +20,26 @@
       "cannot_connect": "Could not connect to pasarmalam.app API. Please check your internet connection."
     },
     "abort": {
-      "single_instance_allowed": "CariPasarMalam is already configured. Only a single instance is supported."
+      "single_instance_allowed": "Cari Pasar Malam is already configured. Only a single instance is supported."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "CariPasarMalam Options",
-        "description": "Adjust search radius, tracked persons, state filters, and update intervals.",
+        "title": "Cari Pasar Malam Options",
+        "description": "Adjust search radius, tracked persons, and update intervals.",
         "data": {
           "home_radius": "Home Search Radius (km)",
           "person_radius": "Person Search Radius (km)",
-          "state_filter": "Filter by State",
           "tracked_persons": "Tracked Persons",
           "scan_interval": "Update Interval (minutes)"
         },
         "data_description": {
           "home_radius": "Search radius around your Home zone in kilometers (1 to 50 km).",
           "person_radius": "Search radius around each tracked person's current GPS location (1 to 50 km).",
-          "state_filter": "Choose 'all' for all Malaysia, or select a specific state to filter.",
           "tracked_persons": "Select specific person entities to track, or leave empty to track all persons with GPS.",
           "scan_interval": "How often to recalculate proximity and check market schedules (5 to 1440 minutes)."
         }
-      }
-    }
-  },
-  "selector": {
-    "state_filter": {
-      "options": {
-        "all": "All States (Semua Negeri)",
-        "Johor": "Johor",
-        "Kedah": "Kedah",
-        "Kelantan": "Kelantan",
-        "Kuala Lumpur": "Kuala Lumpur",
-        "Labuan": "Labuan",
-        "Melaka": "Melaka",
-        "Negeri Sembilan": "Negeri Sembilan",
-        "Pahang": "Pahang",
-        "Pulau Pinang": "Pulau Pinang",
-        "Perak": "Perak",
-        "Perlis": "Perlis",
-        "Putrajaya": "Putrajaya",
-        "Sabah": "Sabah",
-        "Sarawak": "Sarawak",
-        "Selangor": "Selangor",
-        "Terengganu": "Terengganu"
       }
     }
   },

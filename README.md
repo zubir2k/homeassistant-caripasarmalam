@@ -1,28 +1,30 @@
-# 🏪 CariPasarMalam for Home Assistant
+# 🏪 Cari Pasar Malam for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/default)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Home Assistant custom integration that brings **[CariPasarMalam](https://pasarmalam.app)** night market directories and schedules directly into your smart home.
+A Home Assistant custom integration that brings **[Cari Pasar Malam](https://pasarmalam.app)** night market directories and schedules directly into your smart home.
 
-Find which pasar malam is open tonight near your home or wherever your family members are, complete with opening times, operating status, distance, amenities, and calendar schedules.
+Find which pasar malam is open tonight near your home or wherever your family members are across Malaysia, complete with opening times, operating status, live distance, amenities, and calendar schedules.
 
 ---
 
 ## ✨ Features
 
 * 🏠 **Home Zone Proximity**: Defaults to your `zone.home` location with a customizable radius (default 10 km).
-* 👤 **Live Person Tracking**: Automatically discovers `person.*` entities with GPS coordinates and calculates the nearest pasar malam to wherever each person is right now (with a customizable person radius, default 5 km).
-* ⚡ **Local In-Memory Spatial Matching**: Caches the entire Malaysian pasar malam directory in Home Assistant's `.storage` once a day. All distance and open-schedule calculations run locally in Python without hammering the API.
+* 👤 **Live Person Tracking**: Automatically discovers `person.*` entities with GPS coordinates and calculates the nearest pasar malam to wherever each person is right now (customizable radius, default 5 km).
+* 🗺️ **Bundled Interactive Lovelace Map Card (`caripasarmalam-card`)**: Built-in Leaflet map card with target switcher pills (Home and family members), filter tags, and market popup details matching the web experience.
+* ⚡ **Local In-Memory Spatial Matching**: Caches the entire Malaysian pasar malam directory (~1,139 markets) in Home Assistant's `.storage` once a day. All distance and schedule calculations run locally in Python without hammering the API.
 * 📅 **Native Calendar Platform (`calendar`)**: Displays recurring weekly pasar malam schedules as native calendar events. Easily trigger automations 1 hour before the market opens!
 * 🔔 **Sensors & Binary Sensors**:
   * `sensor.pasar_malam_<target>_nearest`: Nearest market open today, distance, status (`open`, `opening_soon`, `closed`), opening hours, parking, prayer room, toilet, and Google Maps directions link.
   * `sensor.pasar_malam_<target>_count`: Total number of pasar malam open today within radius.
   * `binary_sensor.pasar_malam_<target>_open_tonight`: `on` if any market is open today/tonight within radius.
 * 🤖 **Action / Service (`caripasarmalam.get_nearby`)**:
-  * Query markets on-demand around any person, zone, or GPS coordinate.
+  * Query markets on-demand around any person, zone, or GPS coordinates (`latitude`, `longitude`).
   * Returns structured response data for Automations, Voice Assist, and WhatsApp AI bots (**Pakbir AI**).
-* 🇲🇾 **Bilingual**: Full English and Bahasa Melayu support.
+* 🇲🇾 **Pure Nationwide GPS**: Seamless tracking across all Malaysian states without manual state switching or boundary restrictions.
+* 🌐 **Bilingual**: Full English and Bahasa Melayu support.
 
 ---
 
@@ -45,14 +47,29 @@ Find which pasar malam is open tonight near your home or wherever your family me
 ## ⚙️ Configuration
 
 1. In Home Assistant, go to **Settings** > **Devices & Services** > **Add Integration**.
-2. Search for **CariPasarMalam**.
+2. Search for **Cari Pasar Malam**.
 3. Set your preferred options:
    * **Home Search Radius**: Default `10` km.
    * **Person Search Radius**: Default `5` km.
-   * **State Filter**: Choose `all` (entire Malaysia) or select a specific state (e.g. `Selangor`).
    * **Update Interval**: Default `30` minutes.
 
-You can modify these options at any time by clicking **Configure** on the integration.
+You can modify these options or filter tracked persons at any time by clicking **Configure** on the integration.
+
+---
+
+## 🗺️ Lovelace Map Card
+
+A custom Lovelace card is bundled automatically with this integration.
+
+Add it to any dashboard view:
+
+```yaml
+type: custom:caripasarmalam-card
+title: Cari Pasar Malam
+default_target: home # or person.zubir
+default_filter: today # today, open, all
+show_user_location: true
+```
 
 ---
 
@@ -60,7 +77,7 @@ You can modify these options at any time by clicking **Configure** on the integr
 
 ### `caripasarmalam.get_nearby`
 
-Find pasar malam near any target with response data:
+Find pasar malam near any target with structured response data:
 
 ```yaml
 action: caripasarmalam.get_nearby
@@ -69,6 +86,19 @@ data:
   radius: 10
   day: today # 'today', 'tomorrow', 'all', 'wed', etc.
   limit: 5
+response_variable: nearby_markets
+```
+
+Or query by raw GPS coordinates:
+
+```yaml
+action: caripasarmalam.get_nearby
+data:
+  latitude: 3.0125
+  longitude: 101.7852
+  radius: 8
+  day: today
+  limit: 3
 response_variable: nearby_markets
 ```
 
@@ -120,7 +150,7 @@ action:
         buka hari ini dari {{ state_attr('sensor.pasar_malam_home_nearest', 'operating_hours_today') }}.
 ```
 
-### 2. Notify when nearing an open Pasar Malam on the way home
+### 2. Notify when nearing an open Pasar Malam on Friday evening
 
 ```yaml
 alias: "Pasar Malam Near Me on Friday"

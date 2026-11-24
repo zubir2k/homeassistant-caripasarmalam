@@ -30,7 +30,7 @@ const T = {
     toilet: "Toilet",
     prayerRoom: "Surau",
     currentLocation: "Current location",
-    noSensor: "No CariPasarMalam sensors found in Home Assistant.",
+    noSensor: "No Cari Pasar Malam sensors found in Home Assistant.",
     noMarkets: "No markets found within search radius.",
     todayTag: "Today",
     daysFull: {
@@ -60,7 +60,7 @@ const T = {
     toilet: "Tandas",
     prayerRoom: "Surau",
     currentLocation: "Lokasi semasa",
-    noSensor: "Tiada sensor CariPasarMalam ditemui dalam Home Assistant.",
+    noSensor: "Tiada sensor Cari Pasar Malam ditemui dalam Home Assistant.",
     noMarkets: "Tiada pasar malam dijumpai dalam lingkungan.",
     todayTag: "Hari Ini",
     daysFull: {
@@ -565,7 +565,7 @@ class CariPasarMalamCard extends HTMLElement {
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         referrerPolicy: "strict-origin-when-cross-origin",
         maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | CariPasarMalam',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Cari Pasar Malam',
       }).addTo(this._map);
 
       this._markersLayer = L.layerGroup().addTo(this._map);
@@ -726,7 +726,7 @@ customElements.define("caripasarmalam-card", CariPasarMalamCard);
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "caripasarmalam-card",
-  name: "CariPasarMalam Map Card",
+  name: "Cari Pasar Malam Map Card",
   description: "Interactive Leaflet map showing nearby night markets with live popups, hours, and navigation.",
   preview: true,
   documentationURL: "https://github.com/zubir2k/homeassistant-caripasarmalam",

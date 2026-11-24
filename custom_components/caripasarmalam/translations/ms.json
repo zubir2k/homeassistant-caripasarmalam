@@ -2,18 +2,16 @@
   "config": {
     "step": {
       "user": {
-        "title": "CariPasarMalam",
+        "title": "Cari Pasar Malam",
         "description": "Cari pasar malam berdekatan di seluruh Malaysia untuk zon Rumah (Home) dan individu (person) berdasarkan koordinat GPS langsung.",
         "data": {
           "home_radius": "Jejari Carian Rumah (km)",
           "person_radius": "Jejari Carian Individu (km)",
-          "state_filter": "Tapis mengikut Negeri",
           "scan_interval": "Sela Masa Kemas Kini (minit)"
         },
         "data_description": {
           "home_radius": "Jejari carian di sekitar zon Rumah dalam kilometer (1 hingga 50 km).",
           "person_radius": "Jejari carian di sekitar lokasi GPS semasa individu (1 hingga 50 km).",
-          "state_filter": "Pilih 'all' untuk seluruh Malaysia, atau pilih negeri tertentu.",
           "scan_interval": "Kekerapan mengira semula jarak dan menyemak jadual pasar malam (5 hingga 1440 minit)."
         }
       }
@@ -22,51 +20,26 @@
       "cannot_connect": "Tidak dapat menyambung ke API pasarmalam.app. Sila periksa sambungan internet anda."
     },
     "abort": {
-      "single_instance_allowed": "CariPasarMalam sudah dikonfigurasi. Hanya satu pemasangan dibenarkan."
+      "single_instance_allowed": "Cari Pasar Malam sudah dikonfigurasi. Hanya satu pemasangan dibenarkan."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Pilihan CariPasarMalam",
-        "description": "Ubah suai jejari carian, individu yang dijejaki, tapisan negeri, dan sela masa kemas kini.",
+        "title": "Pilihan Cari Pasar Malam",
+        "description": "Ubah suai jejari carian, individu yang dijejaki, dan sela masa kemas kini.",
         "data": {
           "home_radius": "Jejari Carian Rumah (km)",
           "person_radius": "Jejari Carian Individu (km)",
-          "state_filter": "Tapis mengikut Negeri",
           "tracked_persons": "Individu yang Dijejaki",
           "scan_interval": "Sela Masa Kemas Kini (minit)"
         },
         "data_description": {
           "home_radius": "Jejari carian di sekitar zon Rumah dalam kilometer (1 hingga 50 km).",
           "person_radius": "Jejari carian di sekitar lokasi GPS semasa individu (1 hingga 50 km).",
-          "state_filter": "Pilih 'all' untuk seluruh Malaysia, atau pilih negeri tertentu.",
           "tracked_persons": "Pilih entiti individu tertentu untuk dijejaki, atau biarkan kosong untuk menjejaki semua orang dengan GPS.",
           "scan_interval": "Kekerapan mengira semula jarak dan menyemak jadual pasar malam (5 hingga 1440 minit)."
         }
-      }
-    }
-  },
-  "selector": {
-    "state_filter": {
-      "options": {
-        "all": "Semua Negeri (All States)",
-        "Johor": "Johor",
-        "Kedah": "Kedah",
-        "Kelantan": "Kelantan",
-        "Kuala Lumpur": "Kuala Lumpur",
-        "Labuan": "Labuan",
-        "Melaka": "Melaka",
-        "Negeri Sembilan": "Negeri Sembilan",
-        "Pahang": "Pahang",
-        "Pulau Pinang": "Pulau Pinang",
-        "Perak": "Perak",
-        "Perlis": "Perlis",
-        "Putrajaya": "Putrajaya",
-        "Sabah": "Sabah",
-        "Sarawak": "Sarawak",
-        "Selangor": "Selangor",
-        "Terengganu": "Terengganu"
       }
     }
   },
@@ -100,7 +73,7 @@
       "fields": {
         "entity_id": {
           "name": "Entiti Lokasi",
-          "description": "Entiti individu atau zon untuk dicari di sekitarnya. Lalai kepada zone.home."
+          "description": "Entiti individu (person) atau zon untuk carian. Piawai kepada zone.home."
         },
         "latitude": {
           "name": "Latitud",
@@ -116,11 +89,11 @@
         },
         "day": {
           "name": "Penapis Hari",
-          "description": "Hari untuk menapis pasar malam ('today', 'tomorrow', 'all', atau hari khusus seperti 'mon')."
+          "description": "Hari untuk menapis pasar malam ('today', 'tomorrow', 'all', atau nama hari seperti 'mon')."
         },
         "limit": {
           "name": "Had Keputusan",
-          "description": "Bilangan maksimum pasar malam yang dikembalikan."
+          "description": "Bilangan maksimum pasar malam untuk dikembalikan."
         }
       }
     }

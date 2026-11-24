@@ -20,12 +20,10 @@ from .const import (
     CACHE_TTL_HOURS,
     CONF_HOME_RADIUS,
     CONF_PERSON_RADIUS,
-    CONF_STATE_FILTER,
     CONF_TRACKED_PERSONS,
     DEFAULT_HOME_RADIUS,
     DEFAULT_PERSON_RADIUS,
     DEFAULT_SCAN_INTERVAL,
-    DEFAULT_STATE_FILTER,
     DOMAIN,
     MYT,
     STORAGE_KEY,
@@ -60,7 +58,7 @@ class CariPasarMalamCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass,
             _LOGGER,
             config_entry=entry,
-            name="CariPasarMalam",
+            name="Cari Pasar Malam",
             update_interval=timedelta(minutes=scan_interval),
         )
         self._store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
@@ -99,11 +97,6 @@ class CariPasarMalamCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_fetch_all_markets(self, session: aiohttp.ClientSession) -> list[dict[str, Any]]:
         """Fetch all markets from the pasarmalam.app API with pagination."""
-        state_filter = self.config_entry.options.get(
-            CONF_STATE_FILTER,
-            self.config_entry.data.get(CONF_STATE_FILTER, DEFAULT_STATE_FILTER),
-        )
-
         headers = {
             "User-Agent": f"HomeAssistant-CariPasarMalam/{VERSION} (+https://github.com/zubir2k/homeassistant-caripasarmalam)",
             "Accept": "application/json",
@@ -118,8 +111,6 @@ class CariPasarMalamCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "offset": offset,
                 "status": "Active",
             }
-            if state_filter and state_filter.lower() != "all":
-                params["state"] = state_filter
 
             try:
                 async with session.get(

@@ -13,14 +13,12 @@ MYT = ZoneInfo("Asia/Kuala_Lumpur")
 CONF_HOME_RADIUS = "home_radius"
 CONF_PERSON_RADIUS = "person_radius"
 CONF_TRACKED_PERSONS = "tracked_persons"
-CONF_STATE_FILTER = "state_filter"
 CONF_SCAN_INTERVAL = "scan_interval"
 
 # Defaults
 DEFAULT_HOME_RADIUS = 10  # km
 DEFAULT_PERSON_RADIUS = 5  # km
 DEFAULT_SCAN_INTERVAL = 30  # minutes
-DEFAULT_STATE_FILTER = "all"
 
 MIN_RADIUS = 1
 MAX_RADIUS = 50
@@ -28,7 +26,6 @@ MAX_RADIUS = 50
 # API Endpoints
 API_BASE_URL = "https://pasarmalam.app/api/v1"
 API_MARKETS_URL = f"{API_BASE_URL}/markets"
-API_STATES_URL = f"{API_BASE_URL}/states"
 API_PAGE_LIMIT = 200
 
 # Cache configuration
@@ -69,23 +66,3 @@ WEEKDAY_NAMES_MS = {
     "sat": "Sabtu",
     "sun": "Ahad",
 }
-
-# Malayan States for selection
-MALAYSIA_STATES = [
-    "Johor",
-    "Kedah",
-    "Kelantan",
-    "Kuala Lumpur",
-    "Labuan",
-    "Melaka",
-    "Negeri Sembilan",
-    "Pahang",
-    "Pulau Pinang",
-    "Perak",
-    "Perlis",
-    "Putrajaya",
-    "Sabah",
-    "Sarawak",
-    "Selangor",
-    "Terengganu",
-]

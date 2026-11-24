@@ -21,24 +21,18 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
-    SelectSelector,
-    SelectSelectorConfig,
-    SelectSelectorMode,
 )
 
 from .const import (
-    API_STATES_URL,
+    API_MARKETS_URL,
     CONF_HOME_RADIUS,
     CONF_PERSON_RADIUS,
     CONF_SCAN_INTERVAL,
-    CONF_STATE_FILTER,
     CONF_TRACKED_PERSONS,
     DEFAULT_HOME_RADIUS,
     DEFAULT_PERSON_RADIUS,
     DEFAULT_SCAN_INTERVAL,
-    DEFAULT_STATE_FILTER,
     DOMAIN,
-    MALAYSIA_STATES,
     MAX_RADIUS,
     MIN_RADIUS,
 )
@@ -50,7 +44,7 @@ async def _async_can_reach_api(hass: HomeAssistant) -> bool:
     """Test if pasarmalam.app API is reachable."""
     try:
         session = async_get_clientsession(hass)
-        async with session.get(API_STATES_URL, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+        async with session.get(f"{API_MARKETS_URL}?limit=1", timeout=aiohttp.ClientTimeout(total=10)) as resp:
             return resp.status == 200
     except (aiohttp.ClientError, TimeoutError):
         return False
@@ -73,13 +67,11 @@ class CariPasarMalamConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             if await _async_can_reach_api(self.hass):
                 return self.async_create_entry(
-                    title="CariPasarMalam",
+                    title="Cari Pasar Malam",
                     data=user_input,
                     options={},
                 )
             errors["base"] = "cannot_connect"
-
-        state_options = ["all"] + MALAYSIA_STATES
 
         schema = vol.Schema(
             {
@@ -105,16 +97,6 @@ class CariPasarMalamConfigFlow(ConfigFlow, domain=DOMAIN):
                         step=1,
                         unit_of_measurement="km",
                         mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Required(
-                    CONF_STATE_FILTER,
-                    default=DEFAULT_STATE_FILTER,
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=state_options,
-                        mode=SelectSelectorMode.DROPDOWN,
-                        translation_key="state_filter",
                     )
                 ),
                 vol.Required(
@@ -162,17 +144,12 @@ class CariPasarMalamOptionsFlow(OptionsFlow):
         current_person_radius = entry.options.get(
             CONF_PERSON_RADIUS, entry.data.get(CONF_PERSON_RADIUS, DEFAULT_PERSON_RADIUS)
         )
-        current_state_filter = entry.options.get(
-            CONF_STATE_FILTER, entry.data.get(CONF_STATE_FILTER, DEFAULT_STATE_FILTER)
-        )
         current_scan_interval = entry.options.get(
             CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         )
         current_tracked_persons = entry.options.get(
             CONF_TRACKED_PERSONS, entry.data.get(CONF_TRACKED_PERSONS, [])
         )
-
-        state_options = ["all"] + MALAYSIA_STATES
 
         schema = vol.Schema(
             {
@@ -198,16 +175,6 @@ class CariPasarMalamOptionsFlow(OptionsFlow):
                         step=1,
                         unit_of_measurement="km",
                         mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Required(
-                    CONF_STATE_FILTER,
-                    default=current_state_filter,
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=state_options,
-                        mode=SelectSelectorMode.DROPDOWN,
-                        translation_key="state_filter",
                     )
                 ),
                 vol.Optional(

@@ -1,4 +1,4 @@
-"""Base entity for CariPasarMalam."""
+"""Base entity for Cari Pasar Malam."""
 from __future__ import annotations
 
 from typing import Any
@@ -11,7 +11,7 @@ from .coordinator import CariPasarMalamCoordinator
 
 
 class CariPasarMalamEntity(CoordinatorEntity[CariPasarMalamCoordinator]):
-    """Defines a base CariPasarMalam entity."""
+    """Defines a base Cari Pasar Malam entity."""
 
     _attr_has_entity_name = True
 
@@ -38,8 +38,8 @@ class CariPasarMalamEntity(CoordinatorEntity[CariPasarMalamCoordinator]):
         """Return device information about this location tracker."""
         return DeviceInfo(
             identifiers={(DOMAIN, self._target_id)},
-            name=f"CariPasarMalam ({self._target_name})",
-            manufacturer="CariPasarMalam",
+            name=f"Cari Pasar Malam ({self._target_name})",
+            manufacturer="Cari Pasar Malam",
             model="Night Market Proximity Tracker",
             sw_version=VERSION,
             configuration_url="https://pasarmalam.app",
