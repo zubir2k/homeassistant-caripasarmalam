@@ -1,4 +1,4 @@
-"""Diagnostics for Cari Pasar Malam, with locations redacted."""
+"""Diagnostics for Cari Pasar Malam, with locations and person identities redacted."""
 from __future__ import annotations
 
 from typing import Any
@@ -14,7 +14,15 @@ TO_REDACT = {"latitude", "longitude", "origin", "name"}
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: CariPasarMalamConfigEntry
 ) -> dict[str, Any]:
+    """Return diagnostics for a config entry with personal details redacted."""
     c = entry.runtime_data
+    raw_locations = (c.data or {}).get("locations", {})
+    # Anonymize dictionary keys so individual household member names are not exposed in dumps
+    anonymized_locations = {
+        ("home" if key == "zone.home" else f"person_{idx}"): async_redact_data(val, TO_REDACT)
+        for idx, (key, val) in enumerate(raw_locations.items())
+    }
+
     return {
         "options": dict(entry.options),
         "last_update_success": c.last_update_success,
@@ -23,5 +31,5 @@ async def async_get_config_entry_diagnostics(
         "markets_usable": len(c.markets),
         "markets_without_schedule": sum(1 for m in c.markets if not m.sessions),
         "last_error": c.last_error,
-        "locations": async_redact_data((c.data or {}).get("locations", {}), TO_REDACT),
+        "locations": anonymized_locations,
     }

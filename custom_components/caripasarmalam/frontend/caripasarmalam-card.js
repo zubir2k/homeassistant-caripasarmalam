@@ -9,7 +9,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.2.3";
+const CARD_VERSION = "0.2.4";
 const TZ = "Asia/Kuala_Lumpur";
 const BASE = new URL(".", import.meta.url).href; // .../caripasarmalam_static/
 const LEAFLET_JS = `${BASE}leaflet/leaflet.js`;
@@ -115,6 +115,16 @@ function loadLeaflet() {
 const esc = (v) =>
   String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
+const safeUrl = (u) => {
+  if (!u) return null;
+  try {
+    const p = new URL(u, window.location.href);
+    return p.protocol === "http:" || p.protocol === "https:" ? p.href : null;
+  } catch {
+    return null;
+  }
+};
+
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const ICON_LOCATE = '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8.94 3A9 9 0 0 0 13 3.06V1h-2v2.06A9 9 0 0 0 3.06 11H1v2h2.06A9 9 0 0 0 11 20.94V23h2v-2.06A9 9 0 0 0 20.94 13H23v-2h-2.06zM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14z"/></svg>';
 // Brand: mdi:store-marker on a teal squircle (same as brand/icon.svg)
@@ -126,7 +136,7 @@ const STORE = "M12 18H6V14H12M21 14V12L20 7H4L3 12V14H4V20H14V14H18V20H20V14M20 
 const pinSvg = (color) => `<svg viewBox="0 0 24 32" width="30" height="40"><path d="M12 31s10-10.2 10-18.5A10 10 0 0 0 2 12.5C2 20.8 12 31 12 31z" fill="${color}" stroke="#fff" stroke-width="1.6"/><g transform="translate(5.5 5.6) scale(.54)"><path fill="#fff" d="${STORE}"/></g></svg>`;
 
 // Maps: the market's own Google Maps place when the dataset has one, else a pin at its coordinates.
-const mapsUrl = (m) => m.gmaps || `https://www.google.com/maps/search/?api=1&query=${num(m.latitude)},${num(m.longitude)}`;
+const mapsUrl = (m) => safeUrl(m.gmaps) || `https://www.google.com/maps/search/?api=1&query=${num(m.latitude)},${num(m.longitude)}`;
 // Navigate (same as Jejak Masjid): Android gets a geo: link so the phone offers its own chooser
 // (Maps, Waze, ...); iPhone/iPad gets a sheet of apps; everything else Google Maps directions.
 const UA = navigator.userAgent || "";
@@ -543,7 +553,7 @@ class CariPasarMalamCard extends HTMLElement {
         ${today ? `<div class="pl muted">${esc(today)}</div>` : ""}
         ${chips ? `<div class="chips">${chips}</div>` : ""}
         <div class="pop-act">
-          <a class="i" href="${esc(m.url || `https://pasarmalam.app/markets/${encodeURIComponent(m.id)}`)}" target="_blank" rel="noopener">${esc(t.info)}</a>
+          <a class="i" href="${esc(safeUrl(m.url) || `https://pasarmalam.app/markets/${encodeURIComponent(m.id)}`)}" target="_blank" rel="noopener">${esc(t.info)}</a>
           <a class="g" href="${esc(navUrl(m))}" target="${navTarget()}" data-nav="${esc(m.id)}" rel="noopener">${esc(t.go)}</a>
         </div>
       </div>`;
