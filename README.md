@@ -2,10 +2,10 @@
 
 [![GitHub Repo stars](https://img.shields.io/github/stars/zubir2k/homeassistant-caripasarmalam?style=social)](https://github.com/zubir2k/homeassistant-caripasarmalam/stargazers)
 [![hacs_badge](https://img.shields.io/badge/HACS-Integration-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/release/zubir2k/homeassistant-caripasarmalam.svg)](https://github.com/zubir2k/homeassistant-caripasarmalam/releases/)
+![GitHub all releases](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=Download%20Count&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.caripasarmalam.total)
 [![Privacy: Local-First](https://img.shields.io/badge/Privacy-Local--First-brightgreen.svg)](PRIVACY.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Buy](https://img.shields.io/badge/Belanja-Coffee-yellow.svg)](https://zubirco.de/buymecoffee)
+[![GitHub Release](https://img.shields.io/github/release/zubir2k/homeassistant-caripasarmalam.svg)](https://github.com/zubir2k/homeassistant-caripasarmalam/releases/)
 
 A Home Assistant custom integration that brings **[Cari Pasar Malam](https://pasarmalam.app)** night market directories and schedules directly into your smart home.
 
@@ -13,8 +13,6 @@ A Home Assistant custom integration that brings **[Cari Pasar Malam](https://pas
 > **Privacy First**: This integration operates on a **100% Local-First** architecture. Your home and family members' GPS coordinates **never leave your Home Assistant server**. Read our full [Privacy Policy](PRIVACY.md).
 
 Find which pasar malam is open tonight near your home or wherever your family members are across Malaysia, complete with opening times, operating status, live distance, amenities, and calendar schedules.
-
----
 
 ## ✨ Features
 
@@ -34,8 +32,6 @@ Find which pasar malam is open tonight near your home or wherever your family me
 * 🇲🇾 **Pure Nationwide GPS**: Seamless tracking across all Malaysian states without manual state switching or boundary restrictions.
 * 🌐 **Bilingual**: Full English and Bahasa Melayu support.
 
----
-
 ## 📦 Installation
 
 ### Option 1: Via Marketplace/HACS (Recommended)
@@ -44,7 +40,7 @@ Find which pasar malam is open tonight near your home or wherever your family me
 
 > [!TIP]
 > If you are unable to use the button above, manually add this repository:
-> 1. Open **HACS** in your Home Assistant.
+> 1. Open **Marketplace/HACS** in your Home Assistant.
 > 2. Click the three dots in the top-right corner and select **Custom repositories**.
 > 3. Add `https://github.com/zubir2k/homeassistant-caripasarmalam` with category **Integration**.
 > 4. Click **Download**, then restart Home Assistant.
@@ -53,8 +49,6 @@ Find which pasar malam is open tonight near your home or wherever your family me
 
 1. Copy the `custom_components/caripasarmalam` folder into your Home Assistant's `config/custom_components/` directory.
 2. Restart Home Assistant.
-
----
 
 ## ⚙️ Configuration
 
@@ -66,11 +60,11 @@ Find which pasar malam is open tonight near your home or wherever your family me
 
 You can modify these options at any time by clicking **Configure** on the integration.
 
----
+## 🗺️ Frontend Map Card
 
-## 🗺️ Lovelace Map Card
+A custom Frontend/Lovelace card is bundled automatically with this integration.
 
-A custom Lovelace card is bundled automatically with this integration.
+<img width="70%" alt="Card" src="https://github.com/user-attachments/assets/d424f563-0cef-4cdc-ad09-1892e1bb9d4c" />
 
 Add it to any dashboard view:
 
@@ -92,8 +86,6 @@ language: auto        # auto, ms, en
 - **Navigate** opens the phone's own app chooser on Android (Google Maps, Waze, ...), a sheet with Apple Maps, Google Maps and Waze on iPhone/iPad, and Google Maps directions elsewhere.
 - The button under the zoom controls re-centres on the selected person (or Home).
 - Map tiles use OpenStreetMap with `strict-origin-when-cross-origin` referrer policy; dark mode is rendered seamlessly via CSS tile inversion matching Jejak Masjid (no external API keys required).
-
----
 
 ## 🛠️ Action / Service Usage
 
@@ -143,8 +135,6 @@ Example response:
 }
 ```
 
----
-
 ## 💡 Example Automations
 
 ### 1. Alert at 4:30 PM if there is a Pasar Malam near Home tonight
@@ -183,8 +173,6 @@ action:
       message: "{{ trigger.calendar_event.summary }} bermula pada {{ trigger.calendar_event.start }}!"
 ```
 
----
-
 ## 🔒 Privacy, Security & Local-First Architecture
 
 A common question when integrating location-aware sensors is: *"Does this integration share my home or family member locations with an external server?"*
@@ -203,11 +191,13 @@ Here is exactly how your privacy and security are protected:
 4. **Private Map Tiles**:
    - The bundled Lovelace card renders OpenStreetMap tiles with `strict-origin-when-cross-origin` referrer policy. No private tokens, Home Assistant URLs, or personal identities are ever sent to map tile providers.
 
----
-
 ## 📜 Credits & License
 
 * Data source: **[CariPasarMalam](https://pasarmalam.app)** by [@muazhazali](https://github.com/muazhazali/caripasarmalam).
 * Licensed under the [MIT License](LICENSE).
+
+## 📢 Join our Community
+
+- [Home Assistant Malaysia](https://www.facebook.com/groups/homeassistantmalaysia)
 
 
