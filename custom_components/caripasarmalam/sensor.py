@@ -65,7 +65,12 @@ async def async_setup_entry(
         ent_reg = er.async_get(hass)
         for reg in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
             uid = reg.unique_id
-            if uid == DATASET_UID or uid in wanted or not uid.startswith(PREFIX):
+            if (
+                reg.domain != "sensor"
+                or uid == DATASET_UID
+                or uid in wanted
+                or not uid.startswith(PREFIX)
+            ):
                 continue
             _LOGGER.info("Removing %s: location no longer tracked", reg.entity_id)
             ent_reg.async_remove(reg.entity_id)

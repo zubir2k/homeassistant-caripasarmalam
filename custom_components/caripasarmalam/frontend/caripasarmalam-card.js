@@ -9,7 +9,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.2.2";
+const CARD_VERSION = "0.2.3";
 const TZ = "Asia/Kuala_Lumpur";
 const BASE = new URL(".", import.meta.url).href; // .../caripasarmalam_static/
 const LEAFLET_JS = `${BASE}leaflet/leaflet.js`;
