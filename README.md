@@ -65,11 +65,23 @@ Add it to any dashboard view:
 
 ```yaml
 type: custom:caripasarmalam-card
-title: Cari Pasar Malam
-default_target: home # or person.zubir
-default_filter: today # today, open, all
-show_user_location: true
+entities:
+  - sensor.pasarmalam_home
+  - sensor.pasarmalam_zubir
+map_height: 320       # px
+list_limit: 6
+show_closed: true
+show_radius: true
+tiles: auto           # auto, light, dark
+language: auto        # auto, ms, en
+# carto_key: xxxx     # optional, see below
 ```
+
+- A tab per location; tap a market to fly to it on the map.
+- Each row has **Map** (the market in Google Maps) and **Navigate**. The map popup has **Info** (the market's page on pasarmalam.app) and **Navigate**.
+- **Navigate** opens the phone's own app chooser on Android (Google Maps, Waze, ...), a sheet with Apple Maps, Google Maps and Waze on iPhone/iPad, and Google Maps directions elsewhere.
+- The button under the zoom controls re-centres on the selected person (or Home).
+- Map tiles are OpenStreetMap; dark mode uses the same tiles colour-inverted. CARTO's Voyager and Dark Matter tiles now need a free key ([carto.com/basemaps/apikey](https://carto.com/basemaps/apikey)) or they show an "API KEY REQUIRED" watermark, so set `carto_key` if you prefer them.
 
 ---
 
