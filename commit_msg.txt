@@ -1,6 +1,1 @@
-chore: apply maintainer review standards (v0.2.4)
-
-- Add URL scheme validation (safeUrl) for external links in caripasarmalam-card.js
-- Anonymize person entity IDs in diagnostics.py to protect household privacy
-- Add automated release packaging workflow (.github/workflows/release.yml)
-- Bump version to 0.2.4 across manifest.json and caripasarmalam-card.js
+chore: flag country as MY in hacs.json

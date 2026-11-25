@@ -1,4 +1,5 @@
 {
   "name": "Cari Pasar Malam",
-  "homeassistant": "2024.1.0"
+  "homeassistant": "2024.1.0",
+  "country": "MY"
 }
