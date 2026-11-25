@@ -4,12 +4,12 @@
  * (https://github.com/zubir2k/homeassistant-caripasarmalam).
  *
  * Data: CariPasarMalam (https://pasarmalam.app), community maintained, MIT.
- * Map: Leaflet (BSD-2), bundled. Tiles: OpenStreetMap / CARTO.
+ * Map: Leaflet (BSD-2), bundled. Tiles: OpenStreetMap.
  *
  * MIT License
  */
 
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.2.2";
 const TZ = "Asia/Kuala_Lumpur";
 const BASE = new URL(".", import.meta.url).href; // .../caripasarmalam_static/
 const LEAFLET_JS = `${BASE}leaflet/leaflet.js`;
@@ -22,17 +22,9 @@ const COLORS = {
   unknown: { fg: "#94a3b8", ring: "rgba(148,163,184,.20)" },
 };
 
-// CARTO raster basemaps need a key since Aug 2026 (keyless tiles carry an "API KEY REQUIRED" watermark).
-// Default is OpenStreetMap (dark mode = the same tiles, colour-inverted); set carto_key to use CARTO Voyager / Dark Matter.
-const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
-const CARTO_ATTR = `${OSM_ATTR} &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>`;
-const tilesFor = (dark, key) =>
-  key
-    ? {
-        url: `https://{s}.basemaps.cartocdn.com/rastertiles/${dark ? "dark_all" : "voyager"}/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(key)}`,
-        attribution: CARTO_ATTR, subdomains: "abcd", maxZoom: 20, invert: false,
-      }
-    : { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: OSM_ATTR, maxZoom: 19, invert: dark };
+// Map tiles: OpenStreetMap with strict-origin-when-cross-origin referrer policy.
+// Dark mode is handled via CSS tile inversion, matching Jejak Masjid (no API keys required).
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> | Cari Pasar Malam';
 
 const T = {
   ms: {
@@ -182,8 +174,7 @@ class CariPasarMalamCard extends HTMLElement {
           type: "grid",
           name: "",
           schema: [
-            { name: "tiles", selector: { select: { options: ["auto", "light", "dark"], mode: "dropdown" } } },
-            { name: "carto_key", selector: { text: {} } },
+            { name: "dark_tiles", selector: { select: { options: ["auto", "true", "false"], mode: "dropdown" } } },
             { name: "language", selector: { select: { options: ["auto", "ms", "en"], mode: "dropdown" } } },
           ],
         },
@@ -196,8 +187,7 @@ class CariPasarMalamCard extends HTMLElement {
           title: "Title",
           map_height: "Map height",
           list_limit: "Markets in list (0 hides the list)",
-          tiles: "Map style",
-          carto_key: "CARTO basemaps key (optional)",
+          dark_tiles: "Dark map tiles",
           language: "Language",
           show_closed: "Show closed markets",
           show_radius: "Show search radius",
@@ -211,7 +201,7 @@ class CariPasarMalamCard extends HTMLElement {
     this._config = {
       map_height: 320,
       list_limit: 6,
-      tiles: "auto",
+      dark_tiles: "auto",
       language: "auto",
       show_closed: true,
       show_radius: true,
@@ -260,8 +250,9 @@ class CariPasarMalamCard extends HTMLElement {
   }
 
   get _dark() {
-    if (this._config.tiles === "dark") return true;
-    if (this._config.tiles === "light") return false;
+    const d = this._config.dark_tiles ?? this._config.tiles;
+    if (d === true || d === "true" || d === "dark") return true;
+    if (d === false || d === "false" || d === "light") return false;
     return !!this._hass?.themes?.darkMode;
   }
 
@@ -386,7 +377,11 @@ class CariPasarMalamCard extends HTMLElement {
       const L = await loadLeaflet();
       if (this._map || !this._el) return;
       this._map = L.map(this._el.map, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
-      this._tileDark = null;
+      this._tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        referrerPolicy: "strict-origin-when-cross-origin",
+        maxZoom: 19,
+        attribution: OSM_ATTR,
+      }).addTo(this._map);
       this._layer = L.layerGroup().addTo(this._map);
       this._map.setView([3.139, 101.6869], 11); // KL until we know better
       this._map.on("focus", () => this._map.scrollWheelZoom.enable());
@@ -431,21 +426,10 @@ class CariPasarMalamCard extends HTMLElement {
     }
   }
 
-  _setTiles(L) {
-    const dark = this._dark;
-    if (this._tiles && this._tileDark === dark) return;
-    if (this._tiles) this._map.removeLayer(this._tiles);
-    const cfg = tilesFor(dark, this._config.carto_key);
-    // HA pages send no Referer and OSM refuses tiles without one (403)
-    this._tiles = L.tileLayer(cfg.url, {
-      ...cfg, className: cfg.invert ? "inv" : "", referrerPolicy: "strict-origin-when-cross-origin",
-    }).addTo(this._map);
-    this._tileDark = dark;
-  }
-
   _render() {
     if (!this._config || !this._hass) return;
     if (!this._built) this._shell();
+    this.classList.toggle("dark", this._dark);
     const t = this._t;
     const hass = this._hass;
     const st = hass.states[this._active];
@@ -567,7 +551,6 @@ class CariPasarMalamCard extends HTMLElement {
 
   _renderMap(st, markets) {
     const L = window.L;
-    this._setTiles(L);
     const openPopup = this._openId;
     this._layer.clearLayers();
     this._markers = {};
@@ -646,7 +629,9 @@ const STYLE = `
   .tab b { font-weight:600; margin-left:2px; }
   .mapwrap { position:relative; }
   .map { position:absolute; inset:0; z-index:0; background:var(--secondary-background-color); }
-  .inv { filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
+  .leaflet-container { background:var(--secondary-background-color, #eee); font:inherit; }
+  :host(.dark) .leaflet-tile-pane { filter:invert(.9) hue-rotate(180deg) brightness(1.1) contrast(1.1) saturate(.35); }
+  :host(.dark) .leaflet-control-attribution, :host(.dark) .leaflet-bar a { background:#222; color:#ccc; }
   .loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--secondary-text-color); }
   .list { padding:4px 0; }
   .row { display:flex; align-items:center; gap:12px; padding:8px 16px; cursor:pointer; }
