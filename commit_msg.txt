@@ -1,6 +1,3 @@
-refactor: decouple API and pure market logic to python-caripasarmalam (ADR-0010)
+docs: add privacy, security and local-first architecture section in README
 
-- Add python-caripasarmalam>=0.1.0 to manifest.json requirements
-- Use CariPasarMalamClient in coordinator for API fetching and error handling
-- Keep custom_components.caripasarmalam.markets as a compatibility facade re-exporting from python-caripasarmalam
-- Update quality_scale.yaml dependency-transparency status
+Clarify that GPS coordinates never leave Home Assistant and all spatial calculations are performed 100% locally in-memory.

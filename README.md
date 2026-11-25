@@ -174,6 +174,26 @@ action:
 
 ---
 
+## 🔒 Privacy, Security & Local-First Architecture
+
+A common question when integrating location-aware sensors is: *"Does this integration share my home or family member locations with an external server?"*
+
+**The short answer: No, never. Your location never leaves your Home Assistant instance.**
+
+Here is exactly how your privacy and security are protected:
+
+1. **Zero Outbound Location Queries**:
+   - The integration **never sends your coordinates** (`latitude`, `longitude`), entity names, or home address to `pasarmalam.app` or any third-party server.
+   - The only network request made is a **catalog download** fetching the public directory of Malaysian night markets (~1,150 records) at most once every 24 hours.
+2. **100% Local Spatial Calculation**:
+   - All distance calculations (Haversine great-circle formula between your targets and markets), radius filtering, and open/closing status resolution run **entirely in Python on your local Home Assistant hardware**.
+3. **Database Recorder Protection**:
+   - Large or frequent attribute changes (such as full market lists and real-time distance countdowns) are excluded from the Home Assistant database recorder (`_unrecorded_attributes`). This prevents database bloat and ensures no sensitive movement trails are stored.
+4. **Private Map Tiles**:
+   - The bundled Lovelace card renders OpenStreetMap tiles with `strict-origin-when-cross-origin` referrer policy. No private tokens, Home Assistant URLs, or personal identities are ever sent to map tile providers.
+
+---
+
 ## 📜 Credits & License
 
 * Data source: **[CariPasarMalam](https://pasarmalam.app)** by [@muazhazali](https://github.com/muazhazali/caripasarmalam).
