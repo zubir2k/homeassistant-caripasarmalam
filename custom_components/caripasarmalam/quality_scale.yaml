@@ -3,7 +3,7 @@ rules:
   action-setup: done
   appropriate-polling:
     status: done
-    comment: Uses DataUpdateCoordinator with 30-minute interval and 24-hour cache for catalog data.
+    comment: Uses DataUpdateCoordinator with 5-minute interval and 24-hour cache for catalog data.
   brands: done
   common-modules: done
   config-flow: done

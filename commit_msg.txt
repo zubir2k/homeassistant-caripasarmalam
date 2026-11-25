@@ -1,0 +1,6 @@
+chore: align repository with Home Assistant architecture standards
+
+- Remove unused orphan module `helpers.py` with outdated imports
+- Add `PARALLEL_UPDATES = 0` to `calendar.py` per ADR-0022 parallel-updates rule
+- Correct polling interval comment in `quality_scale.yaml` (5-minute location scan)
+- Add GitHub Actions workflows for `hassfest` and `hacs/action` validation

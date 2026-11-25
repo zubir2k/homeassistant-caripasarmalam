@@ -23,6 +23,8 @@ from .markets import Market, haversine_km
 
 _LOGGER = logging.getLogger(__name__)
 
+PARALLEL_UPDATES = 0
+
 MYT = ZoneInfo("Asia/Kuala_Lumpur")
 
 PREFIX = "pasarmalam_"
