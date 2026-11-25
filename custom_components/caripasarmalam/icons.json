@@ -4,6 +4,14 @@
       "home": {"default": "mdi:storefront", "state": {"0": "mdi:storefront-outline"}},
       "person": {"default": "mdi:storefront", "state": {"0": "mdi:storefront-outline"}},
       "dataset": {"default": "mdi:database-clock"}
+    },
+    "binary_sensor": {
+      "home_open_tonight": {"default": "mdi:store-check", "state": {"off": "mdi:store-remove"}},
+      "person_open_tonight": {"default": "mdi:store-check", "state": {"off": "mdi:store-remove"}}
+    },
+    "calendar": {
+      "home_calendar": {"default": "mdi:calendar-star"},
+      "person_calendar": {"default": "mdi:calendar-star"}
     }
   }
 }

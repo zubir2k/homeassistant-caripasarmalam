@@ -11,7 +11,7 @@ from .const import DOMAIN
 from .coordinator import CariPasarMalamConfigEntry, CariPasarMalamCoordinator, cache_store
 from .services import async_setup_services, async_unload_services
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.CALENDAR]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 

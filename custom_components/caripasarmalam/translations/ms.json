@@ -3,23 +3,23 @@
     "step": {
       "user": {
         "title": "Cari Pasar Malam",
-        "description": "Pasar malam berdekatan zon Rumah dan setiap orang yang mempunyai GPS. Data daripada CariPasarMalam (pasarmalam.app), direktori yang diselenggara komuniti.",
+        "description": "Pasar malam berdekatan zon Rumah dan setiap individu dengan GPS. Data daripada CariPasarMalam (pasarmalam.app), direktori komuniti.",
         "data": {
-          "radius": "Radius",
-          "max_markets": "Bilangan pasar disenaraikan bagi setiap lokasi"
+          "radius": "Jejari",
+          "max_markets": "Had senarai pasar setiap lokasi"
         },
         "data_description": {
-          "radius": "Sejauh mana dari Rumah dan setiap orang untuk mencari pasar, dalam km.",
-          "max_markets": "Pasar yang dibuka disenaraikan dahulu, kemudian yang akan dibuka, paling dekat dahulu. Digunakan oleh kad peta."
+          "radius": "Jarak carian dari Rumah dan setiap individu dalam km.",
+          "max_markets": "Pasar yang sedang buka diutamakan, kemudian yang akan dibuka sekejap lagi. Digunakan oleh kad peta."
         }
       }
     },
     "error": {
-      "cannot_connect": "Tidak dapat menghubungi pasarmalam.app. Semak sambungan internet dan cuba lagi."
+      "cannot_connect": "Tidak dapat menyambung ke pasarmalam.app. Sila periksa sambungan internet anda."
     },
     "abort": {
-      "single_instance_allowed": "Cari Pasar Malam sudah dipasang.",
-      "already_configured": "Cari Pasar Malam sudah dipasang."
+      "single_instance_allowed": "Cari Pasar Malam telah pun dikonfigurasikan.",
+      "already_configured": "Cari Pasar Malam telah pun dikonfigurasikan."
     }
   },
   "options": {
@@ -27,12 +27,12 @@
       "init": {
         "title": "Cari Pasar Malam",
         "data": {
-          "radius": "Radius",
-          "max_markets": "Bilangan pasar disenaraikan bagi setiap lokasi"
+          "radius": "Jejari",
+          "max_markets": "Had senarai pasar setiap lokasi"
         },
         "data_description": {
-          "radius": "Sejauh mana dari Rumah dan setiap orang untuk mencari pasar, dalam km.",
-          "max_markets": "Pasar yang dibuka disenaraikan dahulu, kemudian yang akan dibuka, paling dekat dahulu. Digunakan oleh kad peta."
+          "radius": "Jarak carian dari Rumah dan setiap individu dalam km.",
+          "max_markets": "Pasar yang sedang buka diutamakan, kemudian yang akan dibuka sekejap lagi. Digunakan oleh kad peta."
         }
       }
     }
@@ -46,16 +46,60 @@
         "name": "{person}"
       },
       "dataset": {
-        "name": "Data dikemas kini"
+        "name": "Kemas kini pangkalan data"
+      }
+    },
+    "binary_sensor": {
+      "home_open_tonight": {
+        "name": "Rumah buka malam ini"
+      },
+      "person_open_tonight": {
+        "name": "{person} buka malam ini"
+      }
+    },
+    "calendar": {
+      "home_calendar": {
+        "name": "Rumah"
+      },
+      "person_calendar": {
+        "name": "{person}"
+      }
+    }
+  },
+  "services": {
+    "get_nearby": {
+      "name": "Dapatkan Pasar Malam Berdekatan",
+      "description": "Cari pasar malam dalam lingkungan radius tertentu untuk individu, zon, atau koordinat GPS.",
+      "fields": {
+        "entity_id": {
+          "name": "Entiti Lokasi",
+          "description": "Entiti individu atau zon untuk carian. Lalai kepada zone.home."
+        },
+        "latitude": {
+          "name": "Latitud",
+          "description": "Latitud GPS (jika tidak menggunakan entiti)."
+        },
+        "longitude": {
+          "name": "Longitud",
+          "description": "Longitud GPS (jika tidak menggunakan entiti)."
+        },
+        "radius": {
+          "name": "Jejari Carian",
+          "description": "Jejari carian dalam kilometer."
+        },
+        "limit": {
+          "name": "Had Keputusan",
+          "description": "Bilangan maksimum pasar malam untuk dikembalikan."
+        }
       }
     }
   },
   "exceptions": {
     "cannot_fetch": {
-      "message": "Tidak dapat mendapatkan senarai pasar dari pasarmalam.app: {error}"
+      "message": "Gagal memuat turun data pasar malam daripada pasarmalam.app: {error}"
     },
     "empty_dataset": {
-      "message": "pasarmalam.app tidak memulangkan sebarang pasar."
+      "message": "pasarmalam.app tidak mengembalikan sebarang data pasar malam."
     }
   }
 }

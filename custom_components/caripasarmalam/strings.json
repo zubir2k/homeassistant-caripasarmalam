@@ -48,6 +48,50 @@
       "dataset": {
         "name": "Dataset updated"
       }
+    },
+    "binary_sensor": {
+      "home_open_tonight": {
+        "name": "Home open tonight"
+      },
+      "person_open_tonight": {
+        "name": "{person} open tonight"
+      }
+    },
+    "calendar": {
+      "home_calendar": {
+        "name": "Home"
+      },
+      "person_calendar": {
+        "name": "{person}"
+      }
+    }
+  },
+  "services": {
+    "get_nearby": {
+      "name": "Get Nearby Pasar Malam",
+      "description": "Find night markets within a specified radius of a person, zone, or GPS coordinates.",
+      "fields": {
+        "entity_id": {
+          "name": "Location Entity",
+          "description": "The person or zone entity to search around. Defaults to zone.home."
+        },
+        "latitude": {
+          "name": "Latitude",
+          "description": "GPS Latitude (if not using an entity)."
+        },
+        "longitude": {
+          "name": "Longitude",
+          "description": "GPS Longitude (if not using an entity)."
+        },
+        "radius": {
+          "name": "Search Radius",
+          "description": "Search radius in kilometers."
+        },
+        "limit": {
+          "name": "Result Limit",
+          "description": "Maximum number of markets to return."
+        }
+      }
     }
   },
   "exceptions": {

@@ -12,14 +12,15 @@ Find which pasar malam is open tonight near your home or wherever your family me
 ## ✨ Features
 
 * 🏠 **Home Zone Proximity**: Defaults to your `zone.home` location with a customizable radius (default 10 km).
-* 👤 **Live Person Tracking**: Automatically discovers `person.*` entities with GPS coordinates and calculates the nearest pasar malam to wherever each person is right now (customizable radius, default 5 km).
-* 🗺️ **Bundled Interactive Lovelace Map Card (`caripasarmalam-card`)**: Built-in Leaflet map card with target switcher pills (Home and family members), filter tags, and market popup details matching the web experience.
+* 👤 **Live Person Tracking**: Automatically discovers `person.*` entities with GPS coordinates and calculates the nearest pasar malam to wherever each person is right now.
+* 🗺️ **Bundled Interactive Lovelace Map Card (`caripasarmalam-card`)**: Built-in Leaflet map card with target switcher tabs (Home and family members), interactive market list with countdowns, and multi-platform turn-by-turn navigation (Google Maps, Waze, Apple Maps).
 * ⚡ **Local In-Memory Spatial Matching**: Caches the entire Malaysian pasar malam directory (~1,139 markets) in Home Assistant's `.storage` once a day. All distance and schedule calculations run locally in Python without hammering the API.
-* 📅 **Native Calendar Platform (`calendar`)**: Displays recurring weekly pasar malam schedules as native calendar events. Easily trigger automations 1 hour before the market opens!
+* 📅 **Native Calendar Platform (`calendar`)**:
+  * `calendar.pasarmalam_<target>`: Displays recurring weekly pasar malam schedules as native calendar events. Easily trigger automations 1 hour before the market opens!
 * 🔔 **Sensors & Binary Sensors**:
-  * `sensor.pasar_malam_<target>_nearest`: Nearest market open today, distance, status (`open`, `opening_soon`, `closed`), opening hours, parking, prayer room, toilet, and Google Maps directions link.
-  * `sensor.pasar_malam_<target>_count`: Total number of pasar malam open today within radius.
-  * `binary_sensor.pasar_malam_<target>_open_tonight`: `on` if any market is open today/tonight within radius.
+  * `sensor.pasarmalam_<target>`: Number of markets currently open, with attributes for nearest open market, upcoming market, and full market details.
+  * `binary_sensor.pasarmalam_<target>_open_tonight`: `on` if any pasar malam is scheduled today or currently open within radius.
+  * `sensor.pasarmalam_dataset`: Diagnostic sensor tracking dataset sync timestamp and usable records.
 * 🤖 **Action / Service (`caripasarmalam.get_nearby`)**:
   * Query markets on-demand around any person, zone, or GPS coordinates (`latitude`, `longitude`).
   * Returns structured response data for Automations, Voice Assist, and WhatsApp AI bots (**Pakbir AI**).
@@ -49,11 +50,10 @@ Find which pasar malam is open tonight near your home or wherever your family me
 1. In Home Assistant, go to **Settings** > **Devices & Services** > **Add Integration**.
 2. Search for **Cari Pasar Malam**.
 3. Set your preferred options:
-   * **Home Search Radius**: Default `10` km.
-   * **Person Search Radius**: Default `5` km.
-   * **Update Interval**: Default `30` minutes.
+   * **Radius**: Default `10` km.
+   * **Markets listed per location**: Default `10`.
 
-You can modify these options or filter tracked persons at any time by clicking **Configure** on the integration.
+You can modify these options at any time by clicking **Configure** on the integration.
 
 ---
 
@@ -81,7 +81,7 @@ language: auto        # auto, ms, en
 - Each row has **Map** (the market in Google Maps) and **Navigate**. The map popup has **Info** (the market's page on pasarmalam.app) and **Navigate**.
 - **Navigate** opens the phone's own app chooser on Android (Google Maps, Waze, ...), a sheet with Apple Maps, Google Maps and Waze on iPhone/iPad, and Google Maps directions elsewhere.
 - The button under the zoom controls re-centres on the selected person (or Home).
-- Map tiles are OpenStreetMap; dark mode uses the same tiles colour-inverted. CARTO's Voyager and Dark Matter tiles now need a free key ([carto.com/basemaps/apikey](https://carto.com/basemaps/apikey)) or they show an "API KEY REQUIRED" watermark, so set `carto_key` if you prefer them.
+- Map tiles are OpenStreetMap with strict referrer policy; dark mode uses the same tiles colour-inverted. CARTO's Voyager and Dark Matter tiles now need a free key ([carto.com/basemaps/apikey](https://carto.com/basemaps/apikey)) or they show an "API KEY REQUIRED" watermark, so set `carto_key` if you prefer them.
 
 ---
 
@@ -96,7 +96,6 @@ action: caripasarmalam.get_nearby
 data:
   entity_id: person.zubir
   radius: 10
-  day: today # 'today', 'tomorrow', 'all', 'wed', etc.
   limit: 5
 response_variable: nearby_markets
 ```
@@ -109,7 +108,6 @@ data:
   latitude: 3.0125
   longitude: 101.7852
   radius: 8
-  day: today
   limit: 3
 response_variable: nearby_markets
 ```
@@ -118,19 +116,18 @@ Example response:
 
 ```json
 {
-  "count": 2,
-  "requested_day": "today",
+  "count": 4,
+  "open_count": 1,
+  "today_count": 2,
   "radius_km": 10.0,
   "nearest": {
     "name": "Pasar Malam Taman Jasmin",
     "distance_km": 3.2,
     "status": "open",
-    "operating_hours_today": "16:00 - 23:00",
     "address": "Jalan Jasmin 3, Taman Jasmin, 43000 Kajang, Selangor",
     "has_toilet": false,
     "has_prayer_room": false,
-    "parking_available": false,
-    "gmaps_link": "https://www.google.com/maps/place/Pasar+Malam+Taman+Jasmin/..."
+    "parking_available": false
   },
   "markets": [...]
 }
@@ -149,40 +146,31 @@ trigger:
     at: "16:30:00"
 condition:
   - condition: state
-    entity_id: binary_sensor.pasar_malam_home_open_tonight
+    entity_id: binary_sensor.pasarmalam_home_open_tonight
     state: "on"
 action:
   - action: notify.notify
     data:
       title: "Jom Pergi Pasar Malam! 🍢"
       message: >-
-        {{ state_attr('sensor.pasar_malam_home_nearest', 'friendly_name') }}:
-        {{ states('sensor.pasar_malam_home_nearest') }}
-        ({{ state_attr('sensor.pasar_malam_home_nearest', 'distance_km') }} km away)
-        buka hari ini dari {{ state_attr('sensor.pasar_malam_home_nearest', 'operating_hours_today') }}.
+        Ada pasar malam buka malam ini berdekatan rumah!
+        Pasar malam terdekat: {{ state_attr('binary_sensor.pasarmalam_home_open_tonight', 'featured') }}.
 ```
 
-### 2. Notify when nearing an open Pasar Malam on Friday evening
+### 2. Native Calendar Alert 1 Hour Before Pasar Malam Opens
 
 ```yaml
-alias: "Pasar Malam Near Me on Friday"
+alias: "Pasar Malam 1 Jam Lagi Reminder"
 trigger:
-  - platform: time_pattern
-    minutes: "/30"
-condition:
-  - condition: time
-    weekday:
-      - fri
-  - condition: numeric_state
-    entity_id: sensor.pasar_malam_zubir_markets_today_count
-    above: 0
+  - platform: calendar
+    event: start
+    offset: "-01:00:00"
+    entity_id: calendar.pasarmalam_home
 action:
-  - action: notify.mobile_app_zubir_phone
+  - action: notify.notify
     data:
-      title: "Pasar Malam Berdekatan Anda"
-      message: >-
-        Pasar malam terdekat dengan lokasi anda ialah {{ states('sensor.pasar_malam_zubir_nearest') }}
-        ({{ state_attr('sensor.pasar_malam_zubir_nearest', 'distance_km') }} km).
+      title: "Pasar Malam Buka 1 Jam Lagi! 🍢"
+      message: "{{ trigger.calendar_event.summary }} bermula pada {{ trigger.calendar_event.start }}!"
 ```
 
 ---

@@ -1,158 +1,207 @@
-"""Calendar platform for CariPasarMalam."""
+"""Calendar platform: weekly schedules of nearby pasar malam as calendar events."""
 from __future__ import annotations
 
-from datetime import datetime, time, timedelta
 import logging
+from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_state_change_event
 
-from .const import MYT, WEEKDAY_CODES
+from .const import (
+    CONF_RADIUS,
+    DEFAULT_RADIUS,
+    HOME,
+)
 from .coordinator import CariPasarMalamConfigEntry, CariPasarMalamCoordinator
 from .entity import CariPasarMalamEntity
-from .helpers import parse_time_to_minutes
+from .markets import Market, haversine_km
 
 _LOGGER = logging.getLogger(__name__)
 
+MYT = ZoneInfo("Asia/Kuala_Lumpur")
+
+PREFIX = "pasarmalam_"
+SUFFIX = "_calendar"
+HOME_UID = f"pasarmalam_home{SUFFIX}"
+
+
+def _uid(source: str) -> str:
+    return HOME_UID if source == HOME else f"{PREFIX}{source.split('.', 1)[1]}{SUFFIX}"
+
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: CariPasarMalamConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: CariPasarMalamConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up CariPasarMalam calendar entities."""
-    coordinator: CariPasarMalamCoordinator = entry.runtime_data
-    entities: list[CalendarEntity] = []
+    coordinator = entry.runtime_data
+    added: set[str] = set()
 
-    locations = coordinator.data.get("locations", {}) if coordinator.data else {}
+    @callback
+    def _sync() -> None:
+        if not coordinator.last_update_success or not coordinator.data:
+            return
+        locations = coordinator.data.get("locations", {})
+        wanted = {_uid(s) for s in locations}
+        new = []
+        for source in sorted(locations):
+            uid = _uid(source)
+            if uid not in added:
+                new.append(PasarMalamCalendarEntity(coordinator, source))
+                added.add(uid)
+        if new:
+            async_add_entities(new)
 
-    for target_id, loc_data in locations.items():
-        # Only create calendar for Home zone and persons with coordinates
-        if not loc_data.get("has_coordinates", True):
-            continue
-        target_name = loc_data.get("name", target_id)
-        entities.append(
-            PasarMalamCalendarEntity(coordinator, target_id, target_name)
-        )
+        ent_reg = er.async_get(hass)
+        for reg in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+            uid = reg.unique_id
+            if reg.domain != "calendar" or uid in wanted or not uid.startswith(PREFIX):
+                continue
+            _LOGGER.info("Removing %s: location no longer tracked", reg.entity_id)
+            ent_reg.async_remove(reg.entity_id)
+            added.discard(uid)
 
-    async_add_entities(entities)
+    _sync()
+    entry.async_on_unload(coordinator.async_add_listener(_sync))
 
 
 class PasarMalamCalendarEntity(CariPasarMalamEntity, CalendarEntity):
-    """Calendar entity displaying weekly schedules of nearby pasar malam."""
+    """Calendar entity showing nearby night market schedules."""
 
-    _attr_translation_key = "market_calendar"
-    _attr_icon = "mdi:calendar-star"
+    def __init__(self, coordinator: CariPasarMalamCoordinator, source: str) -> None:
+        super().__init__(coordinator)
+        self._source = source
+        uid = _uid(source)
+        self._attr_unique_id = uid
+        self.entity_id = f"calendar.{uid.removesuffix(SUFFIX)}"
+        if source == HOME:
+            self._attr_translation_key = "home_calendar"
+        else:
+            self._attr_translation_key = "person_calendar"
+            st = coordinator.hass.states.get(source)
+            name = st.attributes.get("friendly_name") if st else None
+            self._attr_translation_placeholders = {"person": name or source.split(".", 1)[1]}
 
-    def __init__(
-        self,
-        coordinator: CariPasarMalamCoordinator,
-        target_id: str,
-        target_name: str,
-    ) -> None:
-        """Initialize the calendar entity."""
-        super().__init__(coordinator, target_id, target_name)
-        clean_target = target_id.replace(".", "_")
-        self._attr_unique_id = f"{clean_target}_calendar"
-        self._event: CalendarEvent | None = None
+        opts = coordinator.config_entry.options
+        self._radius = float(opts.get(CONF_RADIUS, DEFAULT_RADIUS))
+        self._nearby_markets: list[tuple[float, Market]] = []
+
+    def _coords(self) -> tuple[float, float] | None:
+        st = self.hass.states.get(self._source)
+        if st is None:
+            return None
+        lat, lon = st.attributes.get("latitude"), st.attributes.get("longitude")
+        if lat is None or lon is None:
+            return None
+        try:
+            return float(lat), float(lon)
+        except (TypeError, ValueError):
+            return None
+
+    def _recompute(self) -> None:
+        coords = self._coords()
+        markets = self.coordinator.markets
+        if coords is None or not markets:
+            self._nearby_markets = []
+            return
+        found = []
+        for mk in markets:
+            dist = haversine_km(coords[0], coords[1], mk.lat, mk.lon)
+            if dist <= self._radius and mk.sessions:
+                found.append((dist, mk))
+        found.sort(key=lambda x: x[0])
+        self._nearby_markets = found
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._recompute()
+
+        @callback
+        def _moved(event: Event[EventStateChangedData]) -> None:
+            old, new = event.data["old_state"], event.data["new_state"]
+            if new is None:
+                return
+            if old is not None and (
+                old.attributes.get("latitude"), old.attributes.get("longitude")
+            ) == (new.attributes.get("latitude"), new.attributes.get("longitude")):
+                return
+            self._recompute()
+            self.async_write_ha_state()
+
+        self.async_on_remove(async_track_state_change_event(self.hass, [self._source], _moved))
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._recompute()
+        super()._handle_coordinator_update()
+
+    def _events_between(self, start_date: datetime, end_date: datetime) -> list[CalendarEvent]:
+        events: list[CalendarEvent] = []
+        if not self._nearby_markets:
+            return events
+
+        local_start = start_date.astimezone(MYT)
+        local_end = end_date.astimezone(MYT)
+
+        cur_day = local_start.date()
+        end_day = local_end.date()
+
+        while cur_day <= end_day:
+            weekday = cur_day.weekday()
+            day_midnight = datetime(cur_day.year, cur_day.month, cur_day.day, 0, 0, tzinfo=MYT)
+
+            for dist, mk in self._nearby_markets:
+                for s_start, s_end in mk.sessions:
+                    if s_start // 1440 == weekday:
+                        m_start = s_start % 1440
+                        duration = s_end - s_start
+                        ev_start = day_midnight + timedelta(minutes=m_start)
+                        ev_end = ev_start + timedelta(minutes=duration)
+
+                        if ev_end > local_start and ev_start < local_end:
+                            amenities = []
+                            if mk.parking:
+                                amenities.append("Parking")
+                            if mk.prayer_room:
+                                amenities.append("Surau")
+                            if mk.toilet:
+                                amenities.append("Toilet")
+
+                            desc = (
+                                f"Distance: {dist:.1f} km\n"
+                                f"Address: {mk.address}\n"
+                                f"District: {mk.district}, {mk.state}\n"
+                                f"Amenities: {', '.join(amenities) if amenities else 'None'}"
+                            )
+
+                            events.append(
+                                CalendarEvent(
+                                    start=ev_start,
+                                    end=ev_end,
+                                    summary=f"Pasar Malam {mk.name}",
+                                    description=desc,
+                                    location=mk.address or f"{mk.lat},{mk.lon}",
+                                    uid=f"{mk.id}_{cur_day.strftime('%Y%m%d')}_{m_start}",
+                                )
+                            )
+
+            cur_day += timedelta(days=1)
+
+        events.sort(key=lambda ev: ev.start)
+        return events
 
     @property
     def event(self) -> CalendarEvent | None:
         """Return the next or ongoing event."""
         now = datetime.now(MYT)
-        events = self._get_events_between(now, now + timedelta(days=7))
+        events = self._events_between(now, now + timedelta(days=7))
         return events[0] if events else None
 
     async def async_get_events(
-        self,
-        hass: HomeAssistant,
-        start_date: datetime,
-        end_date: datetime,
+        self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
         """Return calendar events within a datetime range."""
-        return self._get_events_between(start_date, end_date)
-
-    def _get_events_between(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-    ) -> list[CalendarEvent]:
-        """Generate calendar events for all nearby markets within the date window."""
-        events: list[CalendarEvent] = []
-        loc_data = self.location_data
-        nearby_markets = loc_data.get("all_nearby_markets", [])
-
-        # Start from the start_date's beginning of day up to end_date
-        current_dt = start_date.astimezone(MYT).replace(hour=0, minute=0, second=0, microsecond=0)
-        end_dt = end_date.astimezone(MYT)
-
-        while current_dt <= end_dt:
-            day_code = WEEKDAY_CODES.get(current_dt.weekday(), "mon")
-
-            for market in nearby_markets:
-                schedule = market.get("schedule", [])
-                for rule in schedule:
-                    if not isinstance(rule, dict):
-                        continue
-                    if day_code not in rule.get("days", []):
-                        continue
-
-                    times = rule.get("times", [])
-                    for t in times:
-                        start_str = t.get("start", "16:00")
-                        end_str = t.get("end", "22:00")
-
-                        start_min = parse_time_to_minutes(start_str)
-                        end_min = parse_time_to_minutes(end_str)
-
-                        event_start = current_dt.replace(
-                            hour=start_min // 60,
-                            minute=start_min % 60,
-                        )
-
-                        if end_min >= start_min:
-                            event_end = current_dt.replace(
-                                hour=end_min // 60,
-                                minute=end_min % 60,
-                            )
-                        else:
-                            # Cross midnight
-                            event_end = (current_dt + timedelta(days=1)).replace(
-                                hour=end_min // 60,
-                                minute=end_min % 60,
-                            )
-
-                        # Filter against request bounds
-                        if event_end < start_date or event_start > end_date:
-                            continue
-
-                        dist = market.get("distance_km")
-                        dist_str = f"{dist} km away" if dist is not None else ""
-                        parking_note = market.get("parking_notes") or ("Available" if market.get("parking_available") else "None")
-
-                        description_parts = [
-                            f"Distance: {dist_str}",
-                            f"Operating Hours: {start_str} - {end_str}",
-                            f"Parking: {parking_note}",
-                            f"Toilet: {'Yes' if market.get('has_toilet') else 'No'} | Surau: {'Yes' if market.get('has_prayer_room') else 'No'}",
-                        ]
-                        if market.get("gmaps_link"):
-                            description_parts.append(f"Directions: {market['gmaps_link']}")
-
-                        events.append(
-                            CalendarEvent(
-                                start=event_start,
-                                end=event_end,
-                                summary=f"{market.get('name')} ({dist_str})" if dist_str else market.get("name"),
-                                description="\n".join(description_parts),
-                                location=market.get("address"),
-                                uid=f"{market.get('id')}_{current_dt.strftime('%Y%m%d')}_{start_min}",
-                            )
-                        )
-
-            current_dt += timedelta(days=1)
-
-        events.sort(key=lambda ev: ev.start)
-        return events
+        return self._events_between(start_date, end_date)
