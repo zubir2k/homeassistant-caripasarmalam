@@ -52,6 +52,9 @@ Find which pasar malam is open tonight near your home or wherever your family me
 
 ## ⚙️ Configuration
 
+## Setup
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=caripasarmalam)
+
 1. In Home Assistant, go to **Settings** > **Devices & Services** > **Add Integration**.
 2. Search for **Cari Pasar Malam**.
 3. Set your preferred options:
