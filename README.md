@@ -50,9 +50,8 @@ Find which pasar malam is open tonight near your home or wherever your family me
 1. Copy the `custom_components/caripasarmalam` folder into your Home Assistant's `config/custom_components/` directory.
 2. Restart Home Assistant.
 
-## ⚙️ Configuration
+## ⚙️ Setup
 
-## Setup
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=caripasarmalam)
 
 1. In Home Assistant, go to **Settings** > **Devices & Services** > **Add Integration**.
