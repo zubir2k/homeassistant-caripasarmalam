@@ -1,5 +1,0 @@
-chore: fix services schema, add license, and configure HACS metadata
-
-- Align `services.yaml` with Translations 2.0 and use `step: any` for coordinates
-- Add MIT `LICENSE` file required by HACS and GitHub
-- Configure GitHub repository topics and description
