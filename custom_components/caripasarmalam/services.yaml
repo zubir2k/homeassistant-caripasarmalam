@@ -1,46 +1,31 @@
 get_nearby:
-  name: Get Nearby Pasar Malam
-  description: Find night markets (pasar malam) within a specified radius of a person, zone, or GPS coordinates.
   fields:
     entity_id:
-      name: Location Entity
-      description: The person or zone entity to search around. Defaults to zone.home.
       selector:
         entity:
           domain:
             - person
             - zone
     latitude:
-      name: Latitude
-      description: GPS Latitude (if not using an entity).
       selector:
         number:
           min: -90
           max: 90
-          step: 0.0001
-          mode: box
+          step: any
     longitude:
-      name: Longitude
-      description: GPS Longitude (if not using an entity).
       selector:
         number:
           min: -180
           max: 180
-          step: 0.0001
-          mode: box
+          step: any
     radius:
-      name: Search Radius
-      description: Search radius in kilometers (1 to 50 km).
       default: 10
       selector:
         number:
           min: 1
           max: 50
           unit_of_measurement: km
-          mode: box
     limit:
-      name: Result Limit
-      description: Maximum number of markets to return.
       default: 10
       selector:
         number:
