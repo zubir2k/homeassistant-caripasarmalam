@@ -3,9 +3,7 @@
 [![GitHub Repo stars](https://img.shields.io/github/stars/zubir2k/homeassistant-caripasarmalam?style=social)](https://github.com/zubir2k/homeassistant-caripasarmalam/stargazers)
 [![hacs_badge](https://img.shields.io/badge/HACS-Integration-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/release/zubir2k/homeassistant-caripasarmalam.svg)](https://github.com/zubir2k/homeassistant-caripasarmalam/releases/)
-[![Validate with hassfest](https://github.com/zubir2k/homeassistant-caripasarmalam/actions/workflows/hassfest.yml/badge.svg)](https://github.com/zubir2k/homeassistant-caripasarmalam/actions/workflows/hassfest.yml)
-[![Validate with HACS](https://github.com/zubir2k/homeassistant-caripasarmalam/actions/workflows/validate.yml/badge.svg)](https://github.com/zubir2k/homeassistant-caripasarmalam/actions/workflows/validate.yml)
-[![Privacy: Local-First](https://img.shields.io/badge/Privacy-100%25%20Local--First-brightgreen.svg)](PRIVACY.md)
+[![Privacy: Local-First](https://img.shields.io/badge/Privacy-Local--First-brightgreen.svg)](PRIVACY.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Buy](https://img.shields.io/badge/Belanja-Coffee-yellow.svg)](https://zubirco.de/buymecoffee)
 
@@ -40,7 +38,7 @@ Find which pasar malam is open tonight near your home or wherever your family me
 
 ## 📦 Installation
 
-### Option 1: Via HACS (Recommended)
+### Option 1: Via Marketplace/HACS (Recommended)
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=zubir2k&repository=homeassistant-caripasarmalam&category=integration)
 
@@ -211,3 +209,5 @@ Here is exactly how your privacy and security are protected:
 
 * Data source: **[CariPasarMalam](https://pasarmalam.app)** by [@muazhazali](https://github.com/muazhazali/caripasarmalam).
 * Licensed under the [MIT License](LICENSE).
+
+
