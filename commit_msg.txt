@@ -1,7 +1,0 @@
-Remove CARTO dependencies and align map tiles with Jejak Masjid
-
-- Replace CARTO tiles and CARTO API key requirement with standard OpenStreetMap tiles
-- Set referrerPolicy: 'strict-origin-when-cross-origin' on tileLayer to prevent HTTP 403 blocks in Home Assistant
-- Implement dark mode using CSS tile inversion filter (:host(.dark) .leaflet-tile-pane), matching homeassistant-jejakmasjid
-- Update card config schema to dark_tiles ('auto', 'true', 'false') with backwards compatibility
-- Bump card version and manifest to 0.2.2
