@@ -1,5 +1,0 @@
-fix: prevent sensor platform from purging binary_sensor and calendar entities
-
-- Add `reg.domain != "sensor"` check in `sensor.py` dynamic entity sync
-- Previously, `sensor.py`'s cleanup loop checked all entities for the config entry and removed any entity whose unique_id was not in its sensor wanted set, causing all binary_sensor and calendar entities to be purged on the first coordinator refresh
-- Bump version to 0.2.3
