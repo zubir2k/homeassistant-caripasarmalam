@@ -1,8 +1,13 @@
 ![CariPasarMalam](/custom_components/caripasarmalam/brand/dark_logo.png)
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/default)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub Repo stars](https://img.shields.io/github/stars/zubir2k/homeassistant-caripasarmalam?style=social)](https://github.com/zubir2k/homeassistant-caripasarmalam/stargazers)
+[![hacs_badge](https://img.shields.io/badge/HACS-Integration-41BDF5.svg)](https://github.com/hacs/integration)
+[![GitHub Release](https://img.shields.io/github/release/zubir2k/homeassistant-caripasarmalam.svg)](https://github.com/zubir2k/homeassistant-caripasarmalam/releases/)
+[![Validate with hassfest](https://github.com/zubir2k/homeassistant-caripasarmalam/actions/workflows/hassfest.yml/badge.svg)](https://github.com/zubir2k/homeassistant-caripasarmalam/actions/workflows/hassfest.yml)
+[![Validate with HACS](https://github.com/zubir2k/homeassistant-caripasarmalam/actions/workflows/validate.yml/badge.svg)](https://github.com/zubir2k/homeassistant-caripasarmalam/actions/workflows/validate.yml)
 [![Privacy: Local-First](https://img.shields.io/badge/Privacy-100%25%20Local--First-brightgreen.svg)](PRIVACY.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Buy](https://img.shields.io/badge/Belanja-Coffee-yellow.svg)](https://zubirco.de/buymecoffee)
 
 A Home Assistant custom integration that brings **[Cari Pasar Malam](https://pasarmalam.app)** night market directories and schedules directly into your smart home.
 
@@ -37,10 +42,14 @@ Find which pasar malam is open tonight near your home or wherever your family me
 
 ### Option 1: Via HACS (Recommended)
 
-1. Open **HACS** in your Home Assistant.
-2. Click the three dots in the top-right corner and select **Custom repositories**.
-3. Add `https://github.com/zubir2k/homeassistant-caripasarmalam` with category **Integration**.
-4. Click **Download**, then restart Home Assistant.
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=zubir2k&repository=homeassistant-caripasarmalam&category=integration)
+
+> [!TIP]
+> If you are unable to use the button above, manually add this repository:
+> 1. Open **HACS** in your Home Assistant.
+> 2. Click the three dots in the top-right corner and select **Custom repositories**.
+> 3. Add `https://github.com/zubir2k/homeassistant-caripasarmalam` with category **Integration**.
+> 4. Click **Download**, then restart Home Assistant.
 
 ### Option 2: Manual Installation
 

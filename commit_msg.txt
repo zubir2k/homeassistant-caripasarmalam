@@ -1,4 +1,4 @@
-docs: add PRIVACY.md policy and privacy badges/callout in README
+docs: align README badges and HACS one-click button with standard template
 
-- Add comprehensive PRIVACY.md detailing zero-outbound location transmission and local spatial calculation
-- Add Privacy badge and prominent GitHub alert callout in README.md
+- Add GitHub stars, HACS Integration, GitHub release, CI workflow status, and Belanja Coffee badges
+- Add My Home Assistant HACS redirect one-click install badge
