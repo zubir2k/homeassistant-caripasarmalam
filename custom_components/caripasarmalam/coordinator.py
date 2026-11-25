@@ -1,18 +1,18 @@
 """Coordinator: keeps the market dataset fresh and knows which locations to track.
 
-The dataset is fetched whole (about 1,150 markets in 6 calls) at most once a day and kept
+The dataset is fetched whole (about 1,150 markets) at most once a day and kept
 in .storage, so a restart does not refetch it. Every few minutes the coordinator rescans
 zone.home and every person entity with GPS; the sensors then work out distance and
 open/closed status locally, every minute, from the live coordinates.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiohttp
+from caripasarmalam import CariPasarMalamClient, CariPasarMalamError, Market
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -22,16 +22,12 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.loader import async_get_integration
 
 from .const import (
-    API_MARKETS,
-    API_MAX_PAGES,
-    API_PAGE_SIZE,
     DATASET_MAX_AGE_HOURS,
     DOMAIN,
     HOME,
     LOCATION_SCAN_MINUTES,
     USER_AGENT,
 )
-from .markets import Market
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,36 +40,6 @@ type CariPasarMalamConfigEntry = ConfigEntry["CariPasarMalamCoordinator"]
 def cache_store(hass: HomeAssistant) -> Store:
     """Dataset kept in .storage so a restart or reload does not refetch it."""
     return Store(hass, STORAGE_VERSION, STORAGE_KEY)
-
-
-class _HttpError(Exception):
-    def __init__(self, status: int) -> None:
-        super().__init__(f"HTTP {status}")
-        self.status = status
-
-
-async def async_fetch_all(session: aiohttp.ClientSession, user_agent: str) -> list[dict]:
-    """Every market from the public API, page by page."""
-    out: list[dict] = []
-    headers = {"User-Agent": user_agent, "Accept": "application/json"}
-    for page in range(API_MAX_PAGES):
-        params = {"limit": API_PAGE_SIZE, "offset": page * API_PAGE_SIZE}
-        async with session.get(
-            API_MARKETS, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=30)
-        ) as resp:
-            if resp.status == 429:
-                retry = int(resp.headers.get("Retry-After", "5") or 5)
-                await asyncio.sleep(min(retry, 30))
-                raise _HttpError(429)
-            if resp.status != 200:
-                raise _HttpError(resp.status)
-            body = await resp.json(content_type=None)
-        data = body.get("data") or []
-        out.extend(data)
-        if len(data) < API_PAGE_SIZE:
-            break
-        await asyncio.sleep(0.5)  # be gentle with a free API
-    return out
 
 
 class CariPasarMalamCoordinator(DataUpdateCoordinator[dict]):
@@ -126,9 +92,10 @@ class CariPasarMalamCoordinator(DataUpdateCoordinator[dict]):
 
     async def _async_refresh_dataset(self) -> None:
         session = async_get_clientsession(self.hass)
+        client = CariPasarMalamClient(session=session, user_agent=await self._ua())
         try:
-            raw = await async_fetch_all(session, await self._ua())
-        except (aiohttp.ClientError, TimeoutError, _HttpError, ValueError) as err:
+            raw = await client.fetch_raw_markets()
+        except (CariPasarMalamError, aiohttp.ClientError, TimeoutError, ValueError) as err:
             self.last_error = str(err)
             if self.markets:
                 _LOGGER.debug("Dataset refresh failed (%s); keeping the cached copy", err)

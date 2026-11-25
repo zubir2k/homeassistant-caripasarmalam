@@ -10,7 +10,7 @@ rules:
   config-flow-test-coverage: done
   dependency-transparency:
     status: done
-    comment: No external third-party dependencies; uses aiohttp and standard library.
+    comment: Uses python-caripasarmalam published on PyPI.
   docs-actions: done
   docs-conditions:
     status: exempt

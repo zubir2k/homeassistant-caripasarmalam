@@ -1,24 +1,24 @@
 {
-    "domain":  "caripasarmalam",
-    "name":  "Cari Pasar Malam",
-    "codeowners":  [
-                       "@zubir2k"
-                   ],
-    "config_flow":  true,
-    "dependencies":  [
-                         "zone",
-                         "person",
-                         "http",
-                         "frontend"
-                     ],
-    "documentation":  "https://github.com/zubir2k/homeassistant-caripasarmalam",
-    "integration_type":  "service",
-    "iot_class":  "cloud_polling",
-    "issue_tracker":  "https://github.com/zubir2k/homeassistant-caripasarmalam/issues",
-    "quality_scale":  "silver",
-    "requirements":  [
-
-                     ],
-    "single_config_entry":  true,
-    "version":  "0.2.3"
+  "domain": "caripasarmalam",
+  "name": "Cari Pasar Malam",
+  "codeowners": [
+    "@zubir2k"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "person",
+    "zone"
+  ],
+  "documentation": "https://github.com/zubir2k/homeassistant-caripasarmalam",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/zubir2k/homeassistant-caripasarmalam/issues",
+  "quality_scale": "silver",
+  "requirements": [
+    "python-caripasarmalam>=0.1.0"
+  ],
+  "single_config_entry": true,
+  "version": "0.2.3"
 }
