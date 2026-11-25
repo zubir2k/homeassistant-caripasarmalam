@@ -1,3 +1,4 @@
-docs: add privacy, security and local-first architecture section in README
+docs: add PRIVACY.md policy and privacy badges/callout in README
 
-Clarify that GPS coordinates never leave Home Assistant and all spatial calculations are performed 100% locally in-memory.
+- Add comprehensive PRIVACY.md detailing zero-outbound location transmission and local spatial calculation
+- Add Privacy badge and prominent GitHub alert callout in README.md

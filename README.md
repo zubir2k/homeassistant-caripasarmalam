@@ -2,8 +2,12 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/default)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Privacy: Local-First](https://img.shields.io/badge/Privacy-100%25%20Local--First-brightgreen.svg)](PRIVACY.md)
 
 A Home Assistant custom integration that brings **[Cari Pasar Malam](https://pasarmalam.app)** night market directories and schedules directly into your smart home.
+
+> [!NOTE]
+> **Privacy First**: This integration operates on a **100% Local-First** architecture. Your home and family members' GPS coordinates **never leave your Home Assistant server**. Read our full [Privacy Policy](PRIVACY.md).
 
 Find which pasar malam is open tonight near your home or wherever your family members are across Malaysia, complete with opening times, operating status, live distance, amenities, and calendar schedules.
 
@@ -178,7 +182,7 @@ action:
 
 A common question when integrating location-aware sensors is: *"Does this integration share my home or family member locations with an external server?"*
 
-**The short answer: No, never. Your location never leaves your Home Assistant instance.**
+**The short answer: No, never. Your location never leaves your Home Assistant instance.** For full details, see our [Privacy Policy](PRIVACY.md).
 
 Here is exactly how your privacy and security are protected:
 
