@@ -1,4 +1,14 @@
 """Fixtures."""
+try:
+    import pycares
+
+    if hasattr(pycares, "_shutdown_manager"):
+        pycares._shutdown_manager.start()
+    else:
+        pycares.Channel()
+except Exception:
+    pass
+
 import json
 from pathlib import Path
 
