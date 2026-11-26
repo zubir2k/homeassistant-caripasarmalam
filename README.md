@@ -1,6 +1,7 @@
 ![CariPasarMalam](/custom_components/caripasarmalam/brand/dark_logo.png)
 
 [![GitHub Repo stars](https://img.shields.io/github/stars/zubir2k/homeassistant-caripasarmalam?style=social)](https://github.com/zubir2k/homeassistant-caripasarmalam/stargazers)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/default)
 [![hacs_badge](https://img.shields.io/badge/HACS-Integration-41BDF5.svg)](https://github.com/hacs/integration)
 ![GitHub all releases](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=Download%20Count&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.caripasarmalam.total)
 [![Privacy: Local-First](https://img.shields.io/badge/Privacy-Local--First-brightgreen.svg)](PRIVACY.md)
