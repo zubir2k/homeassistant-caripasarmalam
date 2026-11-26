@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
 
 import voluptuous as vol
 
@@ -18,7 +17,6 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
-    CONF_RADIUS,
     DEFAULT_MAX_MARKETS,
     DEFAULT_RADIUS,
     DOMAIN,
