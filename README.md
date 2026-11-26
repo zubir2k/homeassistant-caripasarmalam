@@ -87,7 +87,7 @@ language: auto        # auto, ms, en
 - Each row has **Map** (the market in Google Maps) and **Navigate**. The map popup has **Info** (the market's page on pasarmalam.app) and **Navigate**.
 - **Navigate** opens the phone's own app chooser on Android (Google Maps, Waze, ...), a sheet with Apple Maps, Google Maps and Waze on iPhone/iPad, and Google Maps directions elsewhere.
 - The button under the zoom controls re-centres on the selected person (or Home).
-- Map tiles use OpenStreetMap with `strict-origin-when-cross-origin` referrer policy; dark mode is rendered seamlessly via CSS tile inversion matching Jejak Masjid (no external API keys required).
+- Map tiles use OpenStreetMap with `strict-origin-when-cross-origin` referrer policy; dark mode is rendered seamlessly via CSS tile inversion (no external API keys required).
 
 ## 🛠️ Action / Service Usage
 
